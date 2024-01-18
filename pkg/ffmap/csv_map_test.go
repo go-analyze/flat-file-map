@@ -521,9 +521,9 @@ func TestEncodingSize(t *testing.T) {
 		{
 			name:                "Bool",
 			value:               true,
-			expectedStrSize:     4,
-			expectedFileSizeOne: 27,
-			expectedFileSizeTwo: 48,
+			expectedStrSize:     1,
+			expectedFileSizeOne: 24,
+			expectedFileSizeTwo: 42,
 		},
 		{
 			name:                "Float32",
@@ -628,7 +628,7 @@ func TestEncodingSize(t *testing.T) {
 			value:               struct{ Name string }{"Test"},
 			expectedStrSize:     15,
 			expectedFileSizeOne: 52,
-			expectedFileSizeTwo: 106,
+			expectedFileSizeTwo: 92,
 		},
 		{
 			name: "NamedStruct",
@@ -639,7 +639,7 @@ func TestEncodingSize(t *testing.T) {
 			},
 			expectedStrSize:     119,
 			expectedFileSizeOne: 177,
-			expectedFileSizeTwo: 308,
+			expectedFileSizeTwo: 299,
 		},
 		{
 			name:                "Map",
