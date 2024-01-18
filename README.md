@@ -1,4 +1,4 @@
-# flat-file-map
+# go-analyze/flat-file-map
 A Golang library for storing key-value data in a flat file.
 
 ## Flat File Advantage

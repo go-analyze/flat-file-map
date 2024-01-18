@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"reflect"
 	"slices"
@@ -29,8 +30,11 @@ const (
 	dataStructJson
 	dataString
 	dataInt
+	dataUint
 	dataFloat
+	dataComplexNum
 	dataBool
+	dataSlice
 	dataMap
 )
 
@@ -97,7 +101,7 @@ func (kv *KeyValueCSV) loadFromDisk() error {
 			if err != nil {
 				return err
 			}
-			kv.data[record[1]] = dataItem{dataType: dataType, structId: currStructName, value: string(encodedStruct)}
+			kv.data[record[1]] = dataItem{dataType: dataStructJson, structId: currStructName, value: string(encodedStruct)}
 		default:
 			if len(record) != 3 {
 				return fmt.Errorf("unexpected csv db column count: %v, type: %v, line: %v", len(record), dataType, i+1)
@@ -130,9 +134,17 @@ func (kv *KeyValueCSV) Set(key string, value interface{}) error {
 	case int, int8, int16, int32, int64:
 		dataType = dataInt
 		strVal = strconv.FormatInt(reflect.ValueOf(v).Int(), 10)
+	case uint, uint8, uint16, uint32, uint64:
+		dataType = dataUint
+		strVal = strconv.FormatUint(reflect.ValueOf(v).Uint(), 10)
+	case complex64, complex128:
+		dataType = dataComplexNum
+		strVal = fmt.Sprintf("%v", v)
 	default:
 		val := reflect.ValueOf(value)
-		if val.Kind() == reflect.Map {
+		if val.Kind() == reflect.Slice {
+			dataType = dataSlice
+		} else if val.Kind() == reflect.Map {
 			dataType = dataMap
 		} else {
 			dataType = dataStructJson
@@ -159,37 +171,141 @@ func (kv *KeyValueCSV) Get(key string, value interface{}) (bool, error) {
 		return false, nil
 	}
 
-	// TODO - validate dataVal type matches the type provided here
 	v := reflect.ValueOf(value).Elem()
-	switch v.Kind() {
-	case reflect.String:
+	switch dataVal.dataType {
+	case dataString:
+		if v.Kind() != reflect.String {
+			return false, fmt.Errorf("expected string type but got %v", v.Kind())
+		}
+
 		v.SetString(dataVal.value)
-	case reflect.Bool:
+	case dataInt:
+		iVal, err := strconv.ParseInt(dataVal.value, 10, 64)
+		if err != nil {
+			return false, err
+		}
+
+		switch v.Kind() {
+		case reflect.Int64:
+		case reflect.Int:
+			if iVal < math.MinInt || iVal > math.MaxInt {
+				return false, fmt.Errorf("int overflow")
+			}
+		case reflect.Int32:
+			if iVal < math.MinInt32 || iVal > math.MaxInt32 {
+				return false, fmt.Errorf("int32 overflow")
+			}
+		case reflect.Int16:
+			if iVal < math.MinInt16 || iVal > math.MaxInt16 {
+				return false, fmt.Errorf("int16 overflow")
+			}
+		case reflect.Int8:
+			if iVal < math.MinInt8 || iVal > math.MaxInt8 {
+				return false, fmt.Errorf("int8 overflow")
+			}
+		default:
+			return false, fmt.Errorf("expected int type but got %v", v.Kind())
+		}
+
+		v.SetInt(iVal)
+	case dataUint:
+		uVal, err := strconv.ParseUint(dataVal.value, 10, 64)
+		if err != nil {
+			return false, err
+		}
+
+		switch v.Kind() {
+		case reflect.Uint64:
+		case reflect.Uint:
+			if uVal > math.MaxUint {
+				return false, fmt.Errorf("uint overflow")
+			}
+		case reflect.Uint32:
+			if uVal > math.MaxUint32 {
+				return false, fmt.Errorf("uint32 overflow")
+			}
+		case reflect.Uint16:
+			if uVal > math.MaxUint16 {
+				return false, fmt.Errorf("uint16 overflow")
+			}
+		case reflect.Uint8:
+			if uVal > math.MaxUint8 {
+				return false, fmt.Errorf("uint8 overflow")
+			}
+		default:
+			return false, fmt.Errorf("expected uint type but got %v", v.Kind())
+		}
+
+		v.SetUint(uVal)
+	case dataFloat:
+		fVal, err := strconv.ParseFloat(dataVal.value, 64)
+		if err != nil {
+			return false, err
+		}
+
+		switch v.Kind() {
+		case reflect.Float64:
+		case reflect.Float32:
+			if isFloat32Overflow(fVal) {
+				return false, fmt.Errorf("float32 overflow")
+			}
+		default:
+			return false, fmt.Errorf("expected float type but got %v", v.Kind())
+		}
+
+		v.SetFloat(fVal)
+	case dataComplexNum:
+		var real, imag float64
+		_, err := fmt.Sscanf(dataVal.value, "(%f+%fi)", &real, &imag)
+		if err != nil {
+			return false, err
+		}
+
+		switch v.Kind() {
+		case reflect.Complex128:
+		case reflect.Complex64:
+			if isFloat32Overflow(real) {
+				return false, fmt.Errorf("complex real float32 overflow")
+			} else if isFloat32Overflow(imag) {
+				return false, fmt.Errorf("complex imaginary float32 overflow")
+			}
+		default:
+			return false, fmt.Errorf("expected complex type but got %v", v.Kind())
+		}
+
+		v.SetComplex(complex(real, imag))
+	case dataBool:
+		if v.Kind() != reflect.Bool {
+			return false, fmt.Errorf("expected bool type but got %v", v.Kind())
+		}
+
 		bVal, err := strconv.ParseBool(dataVal.value)
 		if err != nil {
 			return false, err
 		}
 		v.SetBool(bVal)
-	case reflect.Float32, reflect.Float64:
-		fVal, err := strconv.ParseFloat(dataVal.value, 64)
-		if err != nil {
-			return false, err
-		}
-		v.SetFloat(fVal)
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		iVal, err := strconv.ParseInt(dataVal.value, 10, 64)
-		if err != nil {
-			return false, err
-		}
-		v.SetInt(iVal)
-	default:
-		// map and json types are handled uniformly at this point
+	case dataSlice, dataMap, dataStructJson:
 		err := json.Unmarshal([]byte(dataVal.value), value)
 		if err != nil {
 			return false, err
 		}
+	default:
+		return false, fmt.Errorf("unexpected error, Get needs to implement data type %v", dataVal.dataType)
 	}
 	return true, nil
+}
+
+func isFloat32Overflow(fVal float64) bool {
+	f32Val := float32(fVal)
+	if math.IsInf(float64(f32Val), 0) {
+		return true
+	}
+	return false
+}
+
+func (kv *KeyValueCSV) ContainsKey(key string) bool {
+	_, found := kv.data[key]
+	return found
 }
 
 func (kv *KeyValueCSV) KeySet() []string {
@@ -246,7 +362,9 @@ func (kv *KeyValueCSV) Commit() error {
 				}
 				slices.Sort(structHeaders) // sort for consistency
 
-				writer.Write(append([]string{strconv.Itoa(dataStructHeader), dataVal.structId}, structHeaders...))
+				if err := writer.Write(append([]string{strconv.Itoa(dataStructHeader), dataVal.structId}, structHeaders...)); err != nil {
+					return err
+				}
 			}
 
 			if dataVal.structId == lastStructName { // append value only
@@ -259,11 +377,9 @@ func (kv *KeyValueCSV) Commit() error {
 					values = append(values, structValue[fieldName])
 				}
 
-				valueJsonBytes, err := json.Marshal(values)
-				if err != nil {
+				if valueJsonBytes, err := json.Marshal(values); err != nil {
 					return err
-				}
-				if err := writer.Write([]string{strconv.Itoa(dataStructValue), key, string(valueJsonBytes)}); err != nil {
+				} else if err := writer.Write([]string{strconv.Itoa(dataStructValue), key, string(valueJsonBytes)}); err != nil {
 					return err
 				}
 			} else { // no advantage to header encoding, append as single raw json line

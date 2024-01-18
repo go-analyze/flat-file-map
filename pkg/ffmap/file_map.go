@@ -24,6 +24,8 @@ type FlatFileMap interface {
 	// Get will set the value for the given key.  The returned bool indicates if the value was found and matches the
 	// type, check the error for possible parsing or type errors.
 	Get(key string, value interface{}) (bool, error)
+	// ContainsKey will return true if the map has an associated value with the provided key
+	ContainsKey(key string) bool
 	// KeySet will return all the keys stored within the map.
 	KeySet() []string
 }
