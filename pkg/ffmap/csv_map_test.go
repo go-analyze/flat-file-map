@@ -218,7 +218,7 @@ type TestNamedStruct struct {
 
 func TestEncodeValueType(t *testing.T) {
 	t.Parallel()
-	typesToTest := []struct {
+	testCases := []struct {
 		name             string
 		value            interface{}
 		expectedDataType int
@@ -357,7 +357,7 @@ func TestEncodeValueType(t *testing.T) {
 		},
 	}
 
-	for _, tc := range typesToTest {
+	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			dataItem, err := encodeValue(tc.value)
 			require.NoError(t, err)
@@ -369,7 +369,7 @@ func TestEncodeValueType(t *testing.T) {
 
 func TestSetAndGet(t *testing.T) {
 	t.Parallel()
-	typesToTest := []struct {
+	testCases := []struct {
 		name     string
 		setValue interface{}
 		getValue interface{}
@@ -503,7 +503,7 @@ func TestSetAndGet(t *testing.T) {
 		},
 	}
 
-	for _, tc := range typesToTest {
+	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpFile, m := makeTestMap(t)
 			defer os.Remove(tmpFile)
@@ -521,9 +521,32 @@ func TestSetAndGet(t *testing.T) {
 	}
 }
 
+func TestSetError(t *testing.T) {
+	t.Parallel()
+	testCases := []struct {
+		name     string
+		setValue interface{}
+	}{
+		{
+			name:     "NilValue",
+			setValue: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpFile, m := makeTestMap(t)
+			defer os.Remove(tmpFile)
+
+			require.Error(t, m.Set("key", tc.setValue))
+			require.Equal(t, 0, m.Size())
+		})
+	}
+}
+
 func TestGetOverflowError(t *testing.T) {
 	t.Parallel()
-	typesToTest := []struct {
+	testCases := []struct {
 		name     string
 		setValue interface{}
 		getValue interface{}
@@ -605,7 +628,7 @@ func TestGetOverflowError(t *testing.T) {
 		},
 	}
 
-	for _, tc := range typesToTest {
+	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpFile, m := makeTestMap(t)
 			defer os.Remove(tmpFile)
@@ -658,7 +681,7 @@ func TestGetInvalidType(t *testing.T) {
 
 func TestEncodingSize(t *testing.T) {
 	t.Parallel()
-	typesToTest := []struct {
+	testCases := []struct {
 		name                string
 		value               interface{}
 		expectedStrSize     int
@@ -782,7 +805,7 @@ func TestEncodingSize(t *testing.T) {
 			value:               struct{ Name string }{"Test"},
 			expectedStrSize:     15,
 			expectedFileSizeOne: 52,
-			expectedFileSizeTwo: 92,
+			expectedFileSizeTwo: 106,
 		},
 		{
 			name: "NamedStruct",
@@ -793,7 +816,7 @@ func TestEncodingSize(t *testing.T) {
 			},
 			expectedStrSize:     205,
 			expectedFileSizeOne: 275,
-			expectedFileSizeTwo: 464,
+			expectedFileSizeTwo: 477,
 		},
 		{
 			name:                "Map",
@@ -842,7 +865,7 @@ func TestEncodingSize(t *testing.T) {
 		},
 	}
 
-	for _, tc := range typesToTest {
+	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpFile, m := makeTestMap(t)
 			defer os.Remove(tmpFile)

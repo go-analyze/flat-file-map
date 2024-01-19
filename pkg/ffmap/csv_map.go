@@ -3,6 +3,7 @@ package ffmap
 import (
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -39,54 +40,6 @@ const (
 )
 
 const currentFileVersion = "ver:0"
-
-func dataTypePrefix(dataType int) (string, error) {
-	switch dataType {
-	case dataString:
-		return "s:", nil
-	case dataInt:
-		return "i:", nil
-	case dataUint:
-		return "u:", nil
-	case dataFloat:
-		return "f:", nil
-	case dataComplexNum:
-		return "c:", nil
-	case dataBool:
-		return "b:", nil
-	case dataSlice:
-		return "js:", nil
-	case dataMap:
-		return "jm:", nil
-	case dataStructJson:
-		return "j:", nil
-	}
-	return "", fmt.Errorf("unhandled dataType: %v", dataType)
-}
-
-func instanceForPrefix(fieldHeader string) (int, interface{}, string, error) {
-	if strings.HasPrefix(fieldHeader, "s:") {
-		return dataString, new(string), fieldHeader[2:], nil
-	} else if strings.HasPrefix(fieldHeader, "i:") {
-		return dataInt, new(int64), fieldHeader[2:], nil
-	} else if strings.HasPrefix(fieldHeader, "u:") {
-		return dataUint, new(uint64), fieldHeader[2:], nil
-	} else if strings.HasPrefix(fieldHeader, "f:") {
-		return dataFloat, new(float64), fieldHeader[2:], nil
-	} else if strings.HasPrefix(fieldHeader, "c:") {
-		return dataComplexNum, new(complex128), fieldHeader[2:], nil
-	} else if strings.HasPrefix(fieldHeader, "b:") {
-		return dataBool, new(bool), fieldHeader[2:], nil
-	} else if strings.HasPrefix(fieldHeader, "js:") {
-		return dataSlice, new(map[string]interface{}), fieldHeader[3:], nil
-	} else if strings.HasPrefix(fieldHeader, "jm:") {
-		return dataMap, new(map[string]interface{}), fieldHeader[3:], nil
-	} else if strings.HasPrefix(fieldHeader, "j:") {
-		return dataStructJson, new(map[string]interface{}), fieldHeader[2:], nil
-	} else {
-		return -1, nil, "", fmt.Errorf("unknown prefix in field name: %s", fieldHeader)
-	}
-}
 
 // loadFromDisk updates the map with data from the disk.
 func (kv *KeyValueCSV) loadFromDisk() error {
@@ -130,19 +83,19 @@ func (kv *KeyValueCSV) loadFromDisk() error {
 			currStructName = record[1]
 			currStructValueNames = record[2:]
 		case dataStructValue:
-			if len(record) != 2+len(currStructValueNames) {
+			if len(record) != 3 {
 				return fmt.Errorf("unexpected csv struct value column count: %v, line: %v", len(record), i+1)
 			}
+			var values []interface{}
+			if err := json.Unmarshal([]byte(record[2]), &values); err != nil {
+				return err
+			} else if len(values) != len(currStructValueNames) {
+				return fmt.Errorf("unexpected encoded json value count: %v/%v, line: %v",
+					len(values), len(currStructValueNames), i+1)
+			}
 			structValue := make(map[string]interface{})
-			for i, fieldTypeAndName := range currStructValueNames {
-				dataType, value, fieldName, err := instanceForPrefix(fieldTypeAndName)
-				if err != nil {
-					return err
-				}
-				if err = decodeValue(dataType, record[i+2], value); err != nil {
-					return err
-				}
-				structValue[fieldName] = value
+			for j, name := range currStructValueNames {
+				structValue[name] = values[j]
 			}
 			encodedStruct, err := json.Marshal(structValue)
 			if err != nil {
@@ -169,6 +122,8 @@ func encodeValue(value interface{}) (*dataItem, error) {
 	var structId string
 	var strVal string
 	switch v := value.(type) {
+	case nil:
+		return nil, errors.New("can not encode nil value")
 	case string:
 		dataType = dataString
 		strVal = v
@@ -199,12 +154,8 @@ func encodeValue(value interface{}) (*dataItem, error) {
 			dataType = dataMap
 		} else {
 			dataType = dataStructJson
-			if val.IsValid() {
-				// this id is only used for comparison but must remain consistent for a given file version
-				structId = strings.ReplaceAll(val.Type().String(), " ", "")
-			} else {
-				structId = "nil"
-			}
+			// this id is only used for comparison but must remain consistent for a given file version
+			structId = strings.ReplaceAll(val.Type().String(), " ", "")
 		}
 		bytes, err := json.Marshal(v)
 		if err != nil {
@@ -323,7 +274,6 @@ func decodeValue(dataType int, encodedValue string, value interface{}) error {
 		if v.Kind() != reflect.Bool {
 			return fmt.Errorf("expected bool type but got %v", v.Kind())
 		}
-
 		if encodedValue == "t" {
 			v.SetBool(true)
 		} else if encodedValue == "f" {
@@ -337,9 +287,17 @@ func decodeValue(dataType int, encodedValue string, value interface{}) error {
 			return err
 		}
 	default:
-		return fmt.Errorf("unexpected error, Get needs to implement data type %v", encodedValue)
+		return fmt.Errorf("unexpected error, Get needs to implement data type %v", dataType)
 	}
 	return nil
+}
+
+func isFloat32Overflow(fVal float64) bool {
+	f32Val := float32(fVal)
+	if math.IsInf(float64(f32Val), 0) {
+		return true
+	}
+	return false
 }
 
 func (kv *KeyValueCSV) Set(key string, value interface{}) error {
@@ -364,14 +322,6 @@ func (kv *KeyValueCSV) Get(key string, value interface{}) (bool, error) {
 	} else {
 		return true, nil
 	}
-}
-
-func isFloat32Overflow(fVal float64) bool {
-	f32Val := float32(fVal)
-	if math.IsInf(float64(f32Val), 0) {
-		return true
-	}
-	return false
 }
 
 func (kv *KeyValueCSV) ContainsKey(key string) bool {
@@ -428,32 +378,12 @@ func (kv *KeyValueCSV) Commit() error {
 				}
 				lastStructName = dataVal.structId
 				structFieldNames = []string{}
-				for fieldName, _ := range structValue {
+				for fieldName := range structValue {
 					structFieldNames = append(structFieldNames, fieldName)
 				}
 				slices.Sort(structFieldNames) // sort for consistency
-				structHeaders := make([]string, len(structFieldNames))
-				for i, fieldName := range structFieldNames {
-					fieldValue := structValue[fieldName]
-					for j := i + 1; fieldValue == nil && j < len(keys) && kv.data[keys[j]].structId == dataVal.structId; j++ {
-						var nextStructValue map[string]interface{}
-						if err = json.Unmarshal([]byte(kv.data[keys[j]].value), &nextStructValue); err != nil {
-							return err
-						}
-						fieldValue = nextStructValue[fieldName]
-					}
-					item, err := encodeValue(fieldValue)
-					if err != nil {
-						return err
-					}
-					prefix, err := dataTypePrefix(item.dataType)
-					if err != nil {
-						return err
-					}
-					structHeaders[i] = prefix + fieldName
-				}
 
-				if err := writer.Write(append([]string{strconv.Itoa(dataStructHeader), dataVal.structId}, structHeaders...)); err != nil {
+				if err := writer.Write(append([]string{strconv.Itoa(dataStructHeader), dataVal.structId}, structFieldNames...)); err != nil {
 					return err
 				}
 			}
@@ -463,16 +393,14 @@ func (kv *KeyValueCSV) Commit() error {
 				if err := json.Unmarshal([]byte(dataVal.value), &structValue); err != nil {
 					return err
 				}
-				var values []string
+				var values []interface{}
 				for _, fieldName := range structFieldNames {
-					item, err := encodeValue(structValue[fieldName])
-					if err != nil {
-						return err
-					}
-					values = append(values, item.value)
+					values = append(values, structValue[fieldName])
 				}
 
-				if err := writer.Write(append([]string{strconv.Itoa(dataStructValue), key}, values...)); err != nil {
+				if valueJsonBytes, err := json.Marshal(values); err != nil {
+					return err
+				} else if err := writer.Write([]string{strconv.Itoa(dataStructValue), key, string(valueJsonBytes)}); err != nil {
 					return err
 				}
 			} else { // no advantage to header encoding, append as single raw json line
