@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -211,6 +212,159 @@ type TestNamedStruct struct {
 	Float float64
 	Bool  bool
 	Map   map[string]TestNamedStruct
+	Time  time.Time
+	Bytes []byte
+}
+
+func TestEncodeValueType(t *testing.T) {
+	t.Parallel()
+	typesToTest := []struct {
+		name             string
+		value            interface{}
+		expectedDataType int
+	}{
+		{
+			name:             "String",
+			value:            "testString",
+			expectedDataType: dataString,
+		},
+		{
+			name:             "Bool",
+			value:            true,
+			expectedDataType: dataBool,
+		},
+		{
+			name:             "Float32",
+			value:            float32(3.14),
+			expectedDataType: dataFloat,
+		},
+		{
+			name:             "Float64",
+			value:            float64(3.1415),
+			expectedDataType: dataFloat,
+		},
+		{
+			name:             "Int",
+			value:            int(42),
+			expectedDataType: dataInt,
+		},
+		{
+			name:             "Int8",
+			value:            int8(8),
+			expectedDataType: dataInt,
+		},
+		{
+			name:             "Int16",
+			value:            int16(16),
+			expectedDataType: dataInt,
+		},
+		{
+			name:             "Int32",
+			value:            int32(32),
+			expectedDataType: dataInt,
+		},
+		{
+			name:             "Int64",
+			value:            int64(64),
+			expectedDataType: dataInt,
+		},
+		{
+			name:             "Uint",
+			value:            uint(1),
+			expectedDataType: dataUint,
+		},
+		{
+			name:             "Uint8",
+			value:            uint8(8),
+			expectedDataType: dataUint,
+		},
+		{
+			name:             "Uint16",
+			value:            uint16(16),
+			expectedDataType: dataUint,
+		},
+		{
+			name:             "Uint32",
+			value:            uint32(32),
+			expectedDataType: dataUint,
+		},
+		{
+			name:             "Uint64",
+			value:            uint64(64),
+			expectedDataType: dataUint,
+		},
+		{
+			name:             "Complex64",
+			value:            complex64(complex(5, 6)),
+			expectedDataType: dataComplexNum,
+		},
+		{
+			name:             "Complex128",
+			value:            complex128(complex(7, 8)),
+			expectedDataType: dataComplexNum,
+		},
+		{
+			name:             "CustomStruct",
+			value:            struct{ Name string }{"Test"},
+			expectedDataType: dataStructJson,
+		},
+		{
+			name: "NamedStruct",
+			value: TestNamedStruct{
+				Value: "foo",
+				ID:    123,
+				Map:   map[string]TestNamedStruct{"bar": {Value: "bar", ID: 987, Bool: true}},
+			},
+			expectedDataType: dataStructJson,
+		},
+		{
+			name:             "Map",
+			value:            map[string]string{"foo1": "bar1", "foo2": "bar2"},
+			expectedDataType: dataMap,
+		},
+		{
+			name:             "ByteSlice",
+			value:            []byte{1, 2, 3, 4},
+			expectedDataType: dataSlice,
+		},
+		{
+			name:             "IntSlice",
+			value:            []int{1, 2, 3, 4},
+			expectedDataType: dataSlice,
+		},
+		{
+			name:             "Int64Slice",
+			value:            []int64{1000, 2000, 3000, 4000},
+			expectedDataType: dataSlice,
+		},
+		{
+			name:             "StringSlice",
+			value:            []string{"foo", "bar"},
+			expectedDataType: dataSlice,
+		},
+		{
+			name: "StructSlice",
+			value: []TestNamedStruct{
+				{Value: "foo", ID: 123},
+				{Value: "bar", ID: 456},
+			},
+			expectedDataType: dataSlice,
+		},
+		{
+			name:             "Time",
+			value:            time.Now(),
+			expectedDataType: dataStructJson,
+		},
+	}
+
+	for _, tc := range typesToTest {
+		t.Run(tc.name, func(t *testing.T) {
+			dataItem, err := encodeValue(tc.value)
+			require.NoError(t, err)
+
+			require.Equal(t, tc.expectedDataType, dataItem.dataType)
+		})
+	}
 }
 
 func TestSetAndGet(t *testing.T) {
@@ -637,9 +791,9 @@ func TestEncodingSize(t *testing.T) {
 				ID:    123,
 				Map:   map[string]TestNamedStruct{"bar": {Value: "bar", ID: 987, Bool: true}},
 			},
-			expectedStrSize:     119,
-			expectedFileSizeOne: 177,
-			expectedFileSizeTwo: 299,
+			expectedStrSize:     205,
+			expectedFileSizeOne: 275,
+			expectedFileSizeTwo: 464,
 		},
 		{
 			name:                "Map",
@@ -682,9 +836,9 @@ func TestEncodingSize(t *testing.T) {
 				{Value: "foo", ID: 123},
 				{Value: "bar", ID: 456},
 			},
-			expectedStrSize:     119,
-			expectedFileSizeOne: 175,
-			expectedFileSizeTwo: 344,
+			expectedStrSize:     205,
+			expectedFileSizeOne: 273,
+			expectedFileSizeTwo: 540,
 		},
 	}
 

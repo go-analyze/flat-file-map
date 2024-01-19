@@ -434,7 +434,15 @@ func (kv *KeyValueCSV) Commit() error {
 				slices.Sort(structFieldNames) // sort for consistency
 				structHeaders := make([]string, len(structFieldNames))
 				for i, fieldName := range structFieldNames {
-					item, err := encodeValue(structValue[fieldName])
+					fieldValue := structValue[fieldName]
+					for j := i + 1; fieldValue == nil && j < len(keys) && kv.data[keys[j]].structId == dataVal.structId; j++ {
+						var nextStructValue map[string]interface{}
+						if err = json.Unmarshal([]byte(kv.data[keys[j]].value), &nextStructValue); err != nil {
+							return err
+						}
+						fieldValue = nextStructValue[fieldName]
+					}
+					item, err := encodeValue(fieldValue)
 					if err != nil {
 						return err
 					}
