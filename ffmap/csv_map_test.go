@@ -350,24 +350,44 @@ func TestEncodeValueType(t *testing.T) {
 			expectedDataType: dataMap,
 		},
 		{
+			name:             "ByteArray",
+			value:            [4]byte{1, 2, 3, 4},
+			expectedDataType: dataArraySlice,
+		},
+		{
 			name:             "ByteSlice",
 			value:            []byte{1, 2, 3, 4},
-			expectedDataType: dataSlice,
+			expectedDataType: dataArraySlice,
+		},
+		{
+			name:             "IntArray",
+			value:            [4]int{1, 2, 3, 4},
+			expectedDataType: dataArraySlice,
 		},
 		{
 			name:             "IntSlice",
 			value:            []int{1, 2, 3, 4},
-			expectedDataType: dataSlice,
+			expectedDataType: dataArraySlice,
+		},
+		{
+			name:             "Int64Array",
+			value:            [4]int64{1000, 2000, 3000, 4000},
+			expectedDataType: dataArraySlice,
 		},
 		{
 			name:             "Int64Slice",
 			value:            []int64{1000, 2000, 3000, 4000},
-			expectedDataType: dataSlice,
+			expectedDataType: dataArraySlice,
+		},
+		{
+			name:             "StringArray",
+			value:            [2]string{"foo", "bar"},
+			expectedDataType: dataArraySlice,
 		},
 		{
 			name:             "StringSlice",
 			value:            []string{"foo", "bar"},
-			expectedDataType: dataSlice,
+			expectedDataType: dataArraySlice,
 		},
 		{
 			name: "StructSlice",
@@ -375,11 +395,21 @@ func TestEncodeValueType(t *testing.T) {
 				{Value: "foo", ID: 123},
 				{Value: "bar", ID: 456},
 			},
-			expectedDataType: dataSlice,
+			expectedDataType: dataArraySlice,
 		},
 		{
 			name:             "Time",
 			value:            time.Now(),
+			expectedDataType: dataStructJson,
+		},
+		{
+			name:             "MapPointer",
+			value:            &map[string]string{"foo": "bar", "key": "value"},
+			expectedDataType: dataMap,
+		},
+		{
+			name:             "StructPointer",
+			value:            &TestNamedStruct{Value: "foo", ID: 123},
 			expectedDataType: dataStructJson,
 		},
 	}
@@ -501,9 +531,19 @@ func TestSetAndGet(t *testing.T) {
 			getValue: new(map[string]string),
 		},
 		{
+			name:     "ByteArray",
+			setValue: [4]byte{1, 2, 3, 4},
+			getValue: new([4]byte),
+		},
+		{
 			name:     "ByteSlice",
 			setValue: []byte{1, 2, 3, 4},
 			getValue: new([]byte),
+		},
+		{
+			name:     "IntArray",
+			setValue: [4]int{1, 2, 3, 4},
+			getValue: new([4]int),
 		},
 		{
 			name:     "IntSlice",
@@ -511,9 +551,19 @@ func TestSetAndGet(t *testing.T) {
 			getValue: new([]int),
 		},
 		{
+			name:     "Int64Array",
+			setValue: [4]int64{1000, 2000, 3000, 4000},
+			getValue: new([4]int64),
+		},
+		{
 			name:     "Int64Slice",
 			setValue: []int64{1000, 2000, 3000, 4000},
 			getValue: new([]int64),
+		},
+		{
+			name:     "StringArray",
+			setValue: [2]string{"foo", "bar"},
+			getValue: new([2]string),
 		},
 		{
 			name:     "StringSlice",
@@ -527,6 +577,16 @@ func TestSetAndGet(t *testing.T) {
 				{Value: "bar", ID: 456},
 			},
 			getValue: new([]TestNamedStruct),
+		},
+		{
+			name:     "MapPointer",
+			setValue: &map[string]string{"foo": "bar", "key": "value"},
+			getValue: new(*map[string]string),
+		},
+		{
+			name:     "StructPointer",
+			setValue: &TestNamedStruct{Value: "foo", ID: 123},
+			getValue: new(*TestNamedStruct),
 		},
 	}
 

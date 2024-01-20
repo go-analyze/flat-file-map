@@ -31,7 +31,7 @@ type dataItem struct {
 
 const (
 	//0,structId,fieldName1,fieldName2...
-	dataStructHeader = iota  // Used only in CSV, defines a header for struct values (size optimization)
+	dataStructHeader = iota // Used only in CSV, defines a header for struct values (size optimization)
 	//1,mapKey,"[jsonValue1, jsonValue2...]" // value encoded as json array with position matching header field positions
 	dataStructValue // Used only in CSV, defines a struct instance values (size optimization)
 	//2,mapKey,"{jsonObject}" // value encoded directly as json
@@ -49,7 +49,7 @@ const (
 	//8,mapKey,t
 	dataBool
 	//9,mapKey,"[jsonArray]" // value encoded as json
-	dataSlice
+	dataArraySlice
 	//10,mapKey,"{"key":"value"} // value encoded as json
 	dataMap
 )
@@ -169,8 +169,11 @@ func encodeValue(value interface{}) (*dataItem, error) {
 		strVal = fmt.Sprintf("%v", v)
 	default:
 		val := reflect.ValueOf(value)
-		if val.Kind() == reflect.Slice {
-			dataType = dataSlice
+		if val.Kind() == reflect.Ptr { // If it's a pointer, get the value it points to
+			val = val.Elem()
+		}
+		if val.Kind() == reflect.Slice || val.Kind() == reflect.Array {
+			dataType = dataArraySlice
 		} else if val.Kind() == reflect.Map {
 			dataType = dataMap
 		} else {
@@ -302,7 +305,7 @@ func decodeValue(dataType int, encodedValue string, value interface{}) error {
 		} else {
 			return fmt.Errorf("unexpected encoded bool value: %s", encodedValue)
 		}
-	case dataSlice, dataMap, dataStructJson:
+	case dataArraySlice, dataMap, dataStructJson:
 		err := json.Unmarshal([]byte(encodedValue), value)
 		if err != nil {
 			return err
