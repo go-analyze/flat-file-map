@@ -11,12 +11,16 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // KeyValueCSV provides a primarily in-memory key value map, with the ability to load and commit the contents to disk.
 type KeyValueCSV struct {
-	filename string
-	data     map[string]dataItem
+	filename  string
+	rwLock    sync.RWMutex
+	data      map[string]dataItem
+	modCount  int
+	commitMod int
 }
 
 type dataItem struct {
@@ -43,6 +47,9 @@ const currentFileVersion = "ver:0"
 
 // loadFromDisk updates the map with data from the disk.
 func (kv *KeyValueCSV) loadFromDisk() error {
+	kv.rwLock.Lock()
+	defer kv.rwLock.Unlock()
+
 	file, err := os.Open(kv.filename)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -114,6 +121,9 @@ func (kv *KeyValueCSV) loadFromDisk() error {
 }
 
 func (kv *KeyValueCSV) Size() int {
+	kv.rwLock.RLock()
+	defer kv.rwLock.RUnlock()
+
 	return len(kv.data)
 }
 
@@ -305,16 +315,35 @@ func (kv *KeyValueCSV) Set(key string, value interface{}) error {
 	if err != nil {
 		return err
 	}
+
+	kv.rwLock.Lock()
+	defer kv.rwLock.Unlock()
+
+	kv.modCount++
 	kv.data[key] = *item
 	return nil
 }
 
 func (kv *KeyValueCSV) Delete(key string) {
+	kv.rwLock.Lock()
+	defer kv.rwLock.Unlock()
+
+	kv.modCount++
 	delete(kv.data, key)
 }
 
-func (kv *KeyValueCSV) Get(key string, value interface{}) (bool, error) {
+// lockedRead will acquire a read lock before loading the value, use this function whenever you don't
+// already hold a lock.  Using this ensures that the read lock is promptly released.
+func (kv *KeyValueCSV) lockedRead(key string) (dataItem, bool) {
+	kv.rwLock.RLock()
+	defer kv.rwLock.RUnlock()
+
 	dataVal, ok := kv.data[key]
+	return dataVal, ok
+}
+
+func (kv *KeyValueCSV) Get(key string, value interface{}) (bool, error) {
+	dataVal, ok := kv.lockedRead(key)
 	if !ok {
 		return false, nil
 	} else if err := decodeValue(dataVal.dataType, dataVal.value, value); err != nil {
@@ -325,12 +354,20 @@ func (kv *KeyValueCSV) Get(key string, value interface{}) (bool, error) {
 }
 
 func (kv *KeyValueCSV) ContainsKey(key string) bool {
-	_, found := kv.data[key]
+	_, found := kv.lockedRead(key)
 	return found
 }
 
 func (kv *KeyValueCSV) KeySet() []string {
-	var keys []string
+	kv.rwLock.RLock()
+	defer kv.rwLock.RUnlock()
+
+	return kv.unlockedKeySet()
+}
+
+// unlockedKeySet must have lock acquired before invoking, use KeySet if you don't already hold a lock.
+func (kv *KeyValueCSV) unlockedKeySet() []string {
+	keys := make([]string, 0, len(kv.data))
 	for key := range kv.data {
 		keys = append(keys, key)
 	}
@@ -338,6 +375,14 @@ func (kv *KeyValueCSV) KeySet() []string {
 }
 
 func (kv *KeyValueCSV) Commit() error {
+	kv.rwLock.Lock()
+	defer kv.rwLock.Unlock()
+
+	if kv.modCount == kv.commitMod {
+		return nil // no modifications since last commit, ignore
+	}
+	kv.commitMod = kv.modCount
+
 	file, err := os.Create(kv.filename)
 	if err != nil {
 		return err
@@ -345,8 +390,7 @@ func (kv *KeyValueCSV) Commit() error {
 	defer file.Close()
 
 	// sort keys so output is in a consistent order
-	keys := kv.KeySet()
-	slices.Sort(keys)
+	keys := kv.unlockedKeySet()
 	slices.SortFunc(keys, func(a, b string) int {
 		dataVal1 := kv.data[a]
 		dataVal2 := kv.data[b]

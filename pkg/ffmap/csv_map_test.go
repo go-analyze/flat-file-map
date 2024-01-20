@@ -193,6 +193,33 @@ func TestOpenAndCommit(t *testing.T) {
 			require.Equal(t, expectedValue, actualValue)
 		}
 	})
+	t.Run("CommitModTracking", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, m := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		for i, s := range []string{"foo1", "bar1", "foo2", "bar2", "foo3", "bar3", "foo4", "bar4"} {
+			require.Equal(t, i, m.modCount)
+			require.NoError(t, m.Set(s, s))
+		}
+		require.Zero(t, m.commitMod)
+		require.NoError(t, m.Commit())
+		require.Equal(t, m.modCount, m.commitMod)
+	})
+	t.Run("CommitIgnored", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, m := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		for _, s := range []string{"foo1", "bar1", "foo2", "bar2", "foo3", "bar3", "foo4", "bar4"} {
+			require.NoError(t, m.Set(s, s))
+		}
+		require.NoError(t, m.Commit())
+		require.NoError(t, os.Remove(tmpFile)) // remove file as hack to verify commit does not apply
+
+		require.NoError(t, m.Commit()) // no-op commit
+		require.NoFileExists(t, tmpFile)
+	})
 }
 
 func TestSize(t *testing.T) {
