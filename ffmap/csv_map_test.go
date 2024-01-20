@@ -6,6 +6,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,7 +51,7 @@ func TestOpenAndCommit(t *testing.T) {
 			values[key] = value
 			require.NoError(t, mOrig.Set(key, value))
 		}
-		mOrig.Commit()
+		require.NoError(t, mOrig.Commit())
 
 		mNew, err := OpenCSV(tmpFile)
 		require.NoError(t, err)
@@ -75,7 +76,7 @@ func TestOpenAndCommit(t *testing.T) {
 			values[key] = value
 			require.NoError(t, mOrig.Set(key, value))
 		}
-		mOrig.Commit()
+		require.NoError(t, mOrig.Commit())
 
 		mNew, err := OpenCSV(tmpFile)
 		require.NoError(t, err)
@@ -102,7 +103,6 @@ func TestOpenAndCommit(t *testing.T) {
 			require.NoError(t, m2.Set(b, a))
 			require.NoError(t, m2.Set(a, b))
 		}
-
 		require.NoError(t, m1.Commit())
 		require.NoError(t, m2.Commit())
 
@@ -178,7 +178,7 @@ func TestOpenAndCommit(t *testing.T) {
 		for key, value := range testData {
 			require.NoError(t, mOrig.Set(key, value))
 		}
-		mOrig.Commit()
+		require.NoError(t, mOrig.Commit())
 
 		mNew, err := OpenCSV(tmpFile)
 		require.NoError(t, err)
@@ -965,11 +965,11 @@ func TestEncodingSize(t *testing.T) {
 			value := valueHolder.value
 			require.Equalf(t, tc.expectedStrSize, len(value), "unexpected encoded value: %s", value)
 
-			m.Commit()
+			require.NoError(t, m.Commit())
 			verifyFileSize(t, tmpFile, tc.expectedFileSizeOne)
 
 			require.NoError(t, m.Set("testKey2-"+tc.name, tc.value))
-			m.Commit()
+			require.NoError(t, m.Commit())
 			verifyFileSize(t, tmpFile, tc.expectedFileSizeTwo)
 		})
 	}
@@ -1042,4 +1042,93 @@ func TestDelete(t *testing.T) {
 	require.False(t, found)
 	require.Equal(t, 0, m.Size())
 	require.Len(t, m.KeySet(), 0)
+}
+
+func FuzzLoadRecords(f *testing.F) {
+	f.Add("3,AAAA,BBBB")
+	f.Add("4,AAAA,11")
+	f.Add("5,AAAA,11")
+	f.Add("6,AAAA,1.1")
+	f.Add("7,AAAA,(5+6i)")
+	f.Add("8,AAAA,t")
+	f.Add("8,AAAA,f")
+	f.Add("9,AAAA,\"AQIDBA==\"")
+	f.Add("9,AAAA,[1,1,1,1]")
+	f.Add("9,AAAA,[\"Z\",\"Z\",\"Z\"]")
+	f.Add("10,AAAA,{\"KK1\":\"VV1\",\"KK2\":\"VV2\"}")
+	f.Add("5,AAAA1,11\n5,AAAA2,22")
+	f.Add("0,struct{Namestring},Name\n1,AAAA1,[\"Test\"]\n1,AAAA2,[\"Test\"]")
+	f.Add("9,AAAA1,[1,1,1,1]\n9,AAAA2,[2,2,2,2]")
+	f.Add("9,AAAA1,[\"ZZ\",\"XX\"]\n9,AAAA2,[\"ZZ\",\"XX\"]")
+
+	f.Fuzz(func(t *testing.T, encodedLines string) {
+		var records [][]string
+		records = append(records, []string{currentFileVersion})
+		for _, line := range strings.Split(encodedLines, "\n") {
+			lineSlice := strings.Split(line, ",")
+			if !strings.HasPrefix(line, "0,") { // only three values expected
+				var recombinedLine []string
+				recombinedLine = append(recombinedLine, lineSlice[0])
+				if len(lineSlice) > 1 {
+					recombinedLine = append(recombinedLine, lineSlice[1])
+				}
+				if len(lineSlice) > 2 {
+					recombinedLine = append(recombinedLine, strings.Join(lineSlice[2:], ","))
+				}
+				lineSlice = recombinedLine
+			}
+			records = append(records, lineSlice)
+		}
+
+		require.NotPanics(t, func() {
+			kvMap := KeyValueCSV{
+				data: make(map[string]dataItem),
+			}
+
+			_ = kvMap.loadRecords(records)
+		})
+	})
+}
+
+func FuzzDecodeValue(f *testing.F) {
+	f.Add("AAAA")
+	f.Add("[1000,2000,3000,4000]")
+	f.Add("[\"A\",\"A\",\"A\"]")
+	f.Add("1111")
+	f.Add("(5+6i)")
+	f.Add("{\"KK1\":\"VV1\",\"KK2\":\"VV2\"}")
+	f.Add("2.11")
+	f.Add("\"AQIDBA==\"")
+	f.Add("t")
+	f.Add("f")
+
+	f.Fuzz(func(t *testing.T, encodedValue string) {
+		require.NotPanics(t, func() {
+			_ = decodeValue(dataStructJson, encodedValue, new(map[interface{}]interface{}))
+		})
+		require.NotPanics(t, func() {
+			_ = decodeValue(dataString, encodedValue, new(string))
+		})
+		require.NotPanics(t, func() {
+			_ = decodeValue(dataInt, encodedValue, new(int64))
+		})
+		require.NotPanics(t, func() {
+			_ = decodeValue(dataUint, encodedValue, new(uint64))
+		})
+		require.NotPanics(t, func() {
+			_ = decodeValue(dataFloat, encodedValue, new(float64))
+		})
+		require.NotPanics(t, func() {
+			_ = decodeValue(dataComplexNum, encodedValue, new(complex128))
+		})
+		require.NotPanics(t, func() {
+			_ = decodeValue(dataBool, encodedValue, new(bool))
+		})
+		require.NotPanics(t, func() {
+			_ = decodeValue(dataArraySlice, encodedValue, new([]interface{}))
+		})
+		require.NotPanics(t, func() {
+			_ = decodeValue(dataMap, encodedValue, new(map[interface{}]interface{}))
+		})
+	})
 }

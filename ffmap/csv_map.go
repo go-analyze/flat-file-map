@@ -77,6 +77,10 @@ func (kv *KeyValueCSV) loadFromDisk() error {
 		return err
 	}
 
+	return kv.loadRecords(records)
+}
+
+func (kv *KeyValueCSV) loadRecords(records [][]string) error {
 	var currStructName string
 	var currStructValueNames []string
 	for i, record := range records {
@@ -127,7 +131,6 @@ func (kv *KeyValueCSV) loadFromDisk() error {
 			kv.data[record[1]] = dataItem{dataType: dataType, value: record[2]}
 		}
 	}
-
 	return nil
 }
 
