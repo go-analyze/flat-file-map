@@ -30,16 +30,27 @@ type dataItem struct {
 }
 
 const (
-	dataStructHeader = iota // Used in CSV, defines a header for struct values (size optimization)
-	dataStructValue         // Used in CSV, defines a struct instance values (size optimization)
+	//0,structId,fieldName1,fieldName2...
+	dataStructHeader = iota  // Used only in CSV, defines a header for struct values (size optimization)
+	//1,mapKey,"[jsonValue1, jsonValue2...]" // value encoded as json array with position matching header field positions
+	dataStructValue // Used only in CSV, defines a struct instance values (size optimization)
+	//2,mapKey,"{jsonObject}" // value encoded directly as json
 	dataStructJson
+	//3,mapKey,valueString
 	dataString
+	//4,mapKey,-42
 	dataInt
+	//5,mapKey,42
 	dataUint
+	//6,mapKey,3.1
 	dataFloat
+	//7,mapKey,(3.1-4)
 	dataComplexNum
+	//8,mapKey,t
 	dataBool
+	//9,mapKey,"[jsonArray]" // value encoded as json
 	dataSlice
+	//10,mapKey,"{"key":"value"} // value encoded as json
 	dataMap
 )
 
