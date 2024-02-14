@@ -753,7 +753,7 @@ func TestGetInvalidType(t *testing.T) {
 		require.NoError(t, m.Set(key, value))
 	}
 
-	for key, _ := range testData {
+	for key := range testData {
 		for mismatchKey, mismatchValue := range testData {
 			if key == mismatchKey {
 				continue

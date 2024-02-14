@@ -333,10 +333,7 @@ func decodeValue(dataType int, encodedValue string, value interface{}) error {
 
 func isFloat32Overflow(fVal float64) bool {
 	f32Val := float32(fVal)
-	if math.IsInf(float64(f32Val), 0) {
-		return true
-	}
-	return false
+	return math.IsInf(float64(f32Val), 0)
 }
 
 func (kv *KeyValueCSV) Set(key string, value interface{}) error {
