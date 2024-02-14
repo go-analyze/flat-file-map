@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,7 +28,7 @@ func TestOpenAndCommit(t *testing.T) {
 		tmpFile, m := makeTestMap(t)
 		defer os.Remove(tmpFile)
 
-		require.Equal(t, 0, m.Size())
+		assert.Equal(t, 0, m.Size())
 	})
 	t.Run("OpenMissing", func(t *testing.T) {
 		t.Parallel()
@@ -37,7 +38,7 @@ func TestOpenAndCommit(t *testing.T) {
 		m, err := OpenCSV(tmpfile.Name())
 		require.NoError(t, err)
 
-		require.Equal(t, 0, m.Size())
+		assert.Equal(t, 0, m.Size())
 	})
 	t.Run("SaveAndLoadMaps", func(t *testing.T) {
 		t.Parallel()
@@ -60,8 +61,8 @@ func TestOpenAndCommit(t *testing.T) {
 			var actualValue string
 			found, err := mNew.Get(key, &actualValue)
 			require.NoError(t, err)
-			require.True(t, found)
-			require.Equal(t, expectedValue, actualValue)
+			assert.True(t, found)
+			assert.Equal(t, expectedValue, actualValue)
 		}
 	})
 	t.Run("SaveAndLoadNamedStruct", func(t *testing.T) {
@@ -85,8 +86,8 @@ func TestOpenAndCommit(t *testing.T) {
 			var actualValue TestNamedStruct
 			found, err := mNew.Get(key, &actualValue)
 			require.NoError(t, err)
-			require.True(t, found)
-			require.Equal(t, expectedValue, actualValue)
+			assert.True(t, found)
+			assert.Equal(t, expectedValue, actualValue)
 		}
 	})
 	t.Run("CommitOrderString", func(t *testing.T) {
@@ -110,7 +111,7 @@ func TestOpenAndCommit(t *testing.T) {
 		require.NoError(t, err)
 		file2Content, err := os.ReadFile(tmpFile2)
 		require.NoError(t, err)
-		require.Equal(t, string(file1Content), string(file2Content))
+		assert.Equal(t, string(file1Content), string(file2Content))
 	})
 	t.Run("CommitOrderMixed", func(t *testing.T) {
 		t.Parallel()
@@ -143,7 +144,7 @@ func TestOpenAndCommit(t *testing.T) {
 		require.NoError(t, err)
 		file2Content, err := os.ReadFile(tmpFile2)
 		require.NoError(t, err)
-		require.Equal(t, string(file1Content), string(file2Content))
+		assert.Equal(t, string(file1Content), string(file2Content))
 	})
 	t.Run("SaveAndLoadAllTypes", func(t *testing.T) {
 		t.Parallel()
@@ -187,10 +188,10 @@ func TestOpenAndCommit(t *testing.T) {
 			valPtr := reflect.New(reflect.TypeOf(expectedValue))
 			found, err := mNew.Get(key, valPtr.Interface())
 			require.NoError(t, err)
-			require.True(t, found)
+			assert.True(t, found)
 
 			actualValue := valPtr.Elem().Interface()
-			require.Equal(t, expectedValue, actualValue)
+			assert.Equal(t, expectedValue, actualValue)
 		}
 	})
 	t.Run("CommitModTracking", func(t *testing.T) {
@@ -199,12 +200,12 @@ func TestOpenAndCommit(t *testing.T) {
 		defer os.Remove(tmpFile)
 
 		for i, s := range []string{"foo1", "bar1", "foo2", "bar2", "foo3", "bar3", "foo4", "bar4"} {
-			require.Equal(t, i, m.modCount)
+			assert.Equal(t, i, m.modCount)
 			require.NoError(t, m.Set(s, s))
 		}
-		require.Zero(t, m.commitMod)
+		assert.Zero(t, m.commitMod)
 		require.NoError(t, m.Commit())
-		require.Equal(t, m.modCount, m.commitMod)
+		assert.Equal(t, m.modCount, m.commitMod)
 	})
 	t.Run("CommitIgnored", func(t *testing.T) {
 		t.Parallel()
@@ -218,7 +219,7 @@ func TestOpenAndCommit(t *testing.T) {
 		require.NoError(t, os.Remove(tmpFile)) // remove file as hack to verify commit does not apply
 
 		require.NoError(t, m.Commit()) // no-op commit
-		require.NoFileExists(t, tmpFile)
+		assert.NoFileExists(t, tmpFile)
 	})
 }
 
@@ -229,7 +230,7 @@ func TestSize(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		require.NoError(t, m.Set(fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i)))
-		require.Equal(t, i+1, m.Size())
+		assert.Equal(t, i+1, m.Size())
 	}
 }
 
@@ -419,7 +420,7 @@ func TestEncodeValueType(t *testing.T) {
 			dataItem, err := encodeValue(tc.value)
 			require.NoError(t, err)
 
-			require.Equal(t, tc.expectedDataType, dataItem.dataType)
+			assert.Equal(t, tc.expectedDataType, dataItem.dataType)
 		})
 	}
 }
@@ -600,10 +601,10 @@ func TestSetAndGet(t *testing.T) {
 
 			found, err := m.Get(key, tc.getValue)
 			require.NoError(t, err)
-			require.True(t, found)
+			assert.True(t, found)
 
-			require.Equal(t, reflect.ValueOf(tc.setValue).Interface(), reflect.ValueOf(tc.getValue).Elem().Interface())
-			require.True(t, reflect.DeepEqual(reflect.ValueOf(tc.setValue).Interface(), reflect.ValueOf(tc.getValue).Elem().Interface()))
+			assert.Equal(t, reflect.ValueOf(tc.setValue).Interface(), reflect.ValueOf(tc.getValue).Elem().Interface())
+			assert.True(t, reflect.DeepEqual(reflect.ValueOf(tc.setValue).Interface(), reflect.ValueOf(tc.getValue).Elem().Interface()))
 		})
 	}
 }
@@ -625,8 +626,8 @@ func TestSetError(t *testing.T) {
 			tmpFile, m := makeTestMap(t)
 			defer os.Remove(tmpFile)
 
-			require.Error(t, m.Set("key", tc.setValue))
-			require.Equal(t, 0, m.Size())
+			assert.Error(t, m.Set("key", tc.setValue))
+			assert.Equal(t, 0, m.Size())
 		})
 	}
 }
@@ -724,8 +725,8 @@ func TestGetOverflowError(t *testing.T) {
 			require.NoError(t, m.Set(key, tc.setValue))
 
 			found, err := m.Get(key, tc.getValue)
-			require.Error(t, err)
-			require.False(t, found)
+			assert.Error(t, err)
+			assert.False(t, found)
 		})
 	}
 }
@@ -760,8 +761,8 @@ func TestGetInvalidType(t *testing.T) {
 
 			valPtr := reflect.New(reflect.TypeOf(mismatchValue))
 			found, err := m.Get(key, valPtr.Interface())
-			require.Errorf(t, err, "error expected looking up %s with type %s", key, mismatchKey)
-			require.False(t, found)
+			assert.Errorf(t, err, "error expected looking up %s with type %s", key, mismatchKey)
+			assert.False(t, found)
 		}
 	}
 }
@@ -892,7 +893,7 @@ func TestEncodingSize(t *testing.T) {
 			value:               struct{ Name string }{"Test"},
 			expectedStrSize:     15,
 			expectedFileSizeOne: 52,
-			expectedFileSizeTwo: 106,
+			expectedFileSizeTwo: 113,
 		},
 		{
 			name: "NamedStruct",
@@ -903,7 +904,7 @@ func TestEncodingSize(t *testing.T) {
 			},
 			expectedStrSize:     205,
 			expectedFileSizeOne: 275,
-			expectedFileSizeTwo: 477,
+			expectedFileSizeTwo: 484,
 		},
 		{
 			name:                "Map",
@@ -961,9 +962,9 @@ func TestEncodingSize(t *testing.T) {
 			require.NoError(t, m.Set(key1, tc.value))
 
 			valueHolder, found := m.data[key1]
-			require.True(t, found)
+			assert.True(t, found)
 			value := valueHolder.value
-			require.Equalf(t, tc.expectedStrSize, len(value), "unexpected encoded value: %s", value)
+			assert.Equalf(t, tc.expectedStrSize, len(value), "unexpected encoded value: %s", value)
 
 			require.NoError(t, m.Commit())
 			verifyFileSize(t, tmpFile, tc.expectedFileSizeOne)
@@ -990,7 +991,7 @@ func verifyFileSize(t *testing.T, fileStr string, expectedSize int64) {
 		require.NoError(t, err)
 
 		// Use require.Equal for the assertion and provide file contents as additional info
-		require.Equal(t, expectedSize, fileInfo.Size(),
+		assert.Equal(t, expectedSize, fileInfo.Size(),
 			"Unexpected file size. File contents: \n%s", string(fileContents))
 	}
 }
@@ -1003,8 +1004,8 @@ func TestContainsKey(t *testing.T) {
 	for _, k := range []string{"foo1", "bar1", "foo2", "bar2"} {
 		require.NoError(t, m.Set(k, k))
 
-		require.True(t, m.ContainsKey(k))
-		require.False(t, m.ContainsKey("-"+k))
+		assert.True(t, m.ContainsKey(k))
+		assert.False(t, m.ContainsKey("-"+k))
 	}
 }
 
@@ -1019,9 +1020,9 @@ func TestKeySet(t *testing.T) {
 	}
 
 	keySet := m.KeySet()
-	require.Len(t, keySet, len(keys))
+	assert.Len(t, keySet, len(keys))
 	for _, k := range keys {
-		require.Contains(t, keySet, k)
+		assert.Contains(t, keySet, k)
 	}
 }
 
@@ -1039,9 +1040,9 @@ func TestDelete(t *testing.T) {
 	var result string
 	found, err := m.Get(key, &result)
 	require.NoError(t, err)
-	require.False(t, found)
-	require.Equal(t, 0, m.Size())
-	require.Len(t, m.KeySet(), 0)
+	assert.False(t, found)
+	assert.Equal(t, 0, m.Size())
+	assert.Len(t, m.KeySet(), 0)
 }
 
 func FuzzLoadRecords(f *testing.F) {

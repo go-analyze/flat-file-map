@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"math"
 	"os"
 	"reflect"
@@ -182,7 +183,18 @@ func encodeValue(value interface{}) (*dataItem, error) {
 		} else {
 			dataType = dataStructJson
 			// this id is only used for comparison but must remain consistent for a given file version
+			// We have to consider the field names so that don't mix structs which have had field updates between versions
+			var fieldNames []string
+			for i := 0; i < val.NumField(); i++ {
+				fieldNames = append(fieldNames, val.Type().Field(i).Name)
+			}
+
 			structId = strings.ReplaceAll(val.Type().String(), " ", "")
+			if len(fieldNames) > 0 {
+				concatenatedFieldNames := strings.Join(fieldNames, "")
+				crc32q := crc32.MakeTable(crc32.Castagnoli)
+				structId += "-" + strconv.FormatUint(uint64(crc32.Checksum([]byte(concatenatedFieldNames), crc32q)), 36)
+			}
 		}
 		bytes, err := json.Marshal(v)
 		if err != nil {
