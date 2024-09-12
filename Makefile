@@ -1,4 +1,4 @@
-.PHONY: default test ling
+.PHONY: default test lint
 
 test:
 	go test -race -cover ./...
