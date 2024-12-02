@@ -60,6 +60,10 @@ func (m *memoryFFMap) Delete(key string) {
 	delete(m.data, key)
 }
 
+func (m *memoryFFMap) DeleteAll() {
+	m.data = make(map[string]interface{})
+}
+
 func (m *memoryFFMap) Commit() error {
 	return nil
 }
@@ -131,6 +135,18 @@ func TestTypedFFMap(t *testing.T) {
 		err := tfm.Set(key, "value")
 		require.NoError(t, err)
 		tfm.Delete(key)
+
+		assert.False(t, tfm.ContainsKey(key))
+		assert.Equal(t, 0, tfm.Size())
+	})
+	t.Run("DeleteAll", func(t *testing.T) {
+		t.Parallel()
+		tfm := NewTypedFFMap[string](newMemoryFFMap())
+
+		key := "key"
+		require.NoError(t, tfm.Set(key, "value"))
+		require.NoError(t, tfm.Set("foo"+key, "value"))
+		tfm.DeleteAll()
 
 		assert.False(t, tfm.ContainsKey(key))
 		assert.Equal(t, 0, tfm.Size())

@@ -358,6 +358,14 @@ func (kv *KeyValueCSV) Delete(key string) {
 	delete(kv.data, key)
 }
 
+func (kv *KeyValueCSV) DeleteAll() {
+	kv.rwLock.Lock()
+	defer kv.rwLock.Unlock()
+
+	kv.modCount++
+	kv.data = make(map[string]dataItem)
+}
+
 // lockedRead will acquire a read lock before loading the value, use this function whenever you don't
 // already hold a lock.  Using this ensures that the read lock is promptly released.
 func (kv *KeyValueCSV) lockedRead(key string) (dataItem, bool) {

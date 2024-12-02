@@ -1037,8 +1037,28 @@ func TestDelete(t *testing.T) {
 
 	m.Delete(key)
 
+	verifyEmpty(t, m, key)
+}
+
+func TestDeleteAll(t *testing.T) {
+	t.Parallel()
+	tmpFile, m := makeTestMap(t)
+	defer os.Remove(tmpFile)
+
+	key := "key"
+	require.NoError(t, m.Set(key, "value"))
+	require.NoError(t, m.Set("foo"+key, "value"))
+
+	m.DeleteAll()
+
+	verifyEmpty(t, m, key)
+}
+
+func verifyEmpty(t *testing.T, m *KeyValueCSV, oldKey string) {
+	t.Helper()
+
 	var result string
-	found, err := m.Get(key, &result)
+	found, err := m.Get(oldKey, &result)
 	require.NoError(t, err)
 	assert.False(t, found)
 	assert.Equal(t, 0, m.Size())

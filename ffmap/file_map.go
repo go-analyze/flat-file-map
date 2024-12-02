@@ -37,6 +37,8 @@ type MutableFFMap interface {
 	Set(key string, value interface{}) error
 	// Delete will remove the key from the map (if present).
 	Delete(key string)
+	// DeleteAll will clear or delete all entries from the map.
+	DeleteAll()
 	// Commit will update the disk representation to match the in-memory state.  If this is not invoked the disk will
 	// never be updated.  This must not be called concurrently, and may be slow as the file format is optimized.
 	Commit() error
@@ -84,6 +86,11 @@ func (tfm *TypedFFMap[T]) Set(key string, value T) error {
 // Delete will remove the key from the map (if present).
 func (tfm *TypedFFMap[T]) Delete(key string) {
 	tfm.ffm.Delete(key)
+}
+
+// DeleteAll will clear or delete all entries from the map.
+func (tfm *TypedFFMap[T]) DeleteAll() {
+	tfm.ffm.DeleteAll()
 }
 
 // Commit will update the disk representation to match the in-memory state.  If this is not invoked the disk will
