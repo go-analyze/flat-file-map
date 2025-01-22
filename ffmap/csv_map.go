@@ -184,9 +184,9 @@ func encodeValue(value interface{}) (*dataItem, error) {
 			dataType = dataStructJson
 			// this id is only used for comparison but must remain consistent for a given file version
 			// We have to consider the field names so that don't mix structs which have had field updates between versions
-			var fieldNames []string
-			for i := 0; i < val.NumField(); i++ {
-				fieldNames = append(fieldNames, val.Type().Field(i).Name)
+			fieldNames := make([]string, val.NumField())
+			for i := range fieldNames {
+				fieldNames[i] = val.Type().Field(i).Name
 			}
 
 			structId = strings.ReplaceAll(val.Type().String(), " ", "")
@@ -224,19 +224,19 @@ func decodeValue(dataType int, encodedValue string, value interface{}) error {
 		case reflect.Int64:
 		case reflect.Int:
 			if iVal < math.MinInt || iVal > math.MaxInt {
-				return fmt.Errorf("int overflow")
+				return errors.New("int overflow")
 			}
 		case reflect.Int32:
 			if iVal < math.MinInt32 || iVal > math.MaxInt32 {
-				return fmt.Errorf("int32 overflow")
+				return errors.New("int32 overflow")
 			}
 		case reflect.Int16:
 			if iVal < math.MinInt16 || iVal > math.MaxInt16 {
-				return fmt.Errorf("int16 overflow")
+				return errors.New("int16 overflow")
 			}
 		case reflect.Int8:
 			if iVal < math.MinInt8 || iVal > math.MaxInt8 {
-				return fmt.Errorf("int8 overflow")
+				return errors.New("int8 overflow")
 			}
 		default:
 			return fmt.Errorf("expected int type but got %v", v.Kind())
@@ -253,19 +253,19 @@ func decodeValue(dataType int, encodedValue string, value interface{}) error {
 		case reflect.Uint64:
 		case reflect.Uint:
 			if uVal > math.MaxUint {
-				return fmt.Errorf("uint overflow")
+				return errors.New("uint overflow")
 			}
 		case reflect.Uint32:
 			if uVal > math.MaxUint32 {
-				return fmt.Errorf("uint32 overflow")
+				return errors.New("uint32 overflow")
 			}
 		case reflect.Uint16:
 			if uVal > math.MaxUint16 {
-				return fmt.Errorf("uint16 overflow")
+				return errors.New("uint16 overflow")
 			}
 		case reflect.Uint8:
 			if uVal > math.MaxUint8 {
-				return fmt.Errorf("uint8 overflow")
+				return errors.New("uint8 overflow")
 			}
 		default:
 			return fmt.Errorf("expected uint type but got %v", v.Kind())
@@ -282,7 +282,7 @@ func decodeValue(dataType int, encodedValue string, value interface{}) error {
 		case reflect.Float64:
 		case reflect.Float32:
 			if isFloat32Overflow(fVal) {
-				return fmt.Errorf("float32 overflow")
+				return errors.New("float32 overflow")
 			}
 		default:
 			return fmt.Errorf("expected float type but got %v", v.Kind())
@@ -291,8 +291,7 @@ func decodeValue(dataType int, encodedValue string, value interface{}) error {
 		v.SetFloat(fVal)
 	case dataComplexNum:
 		var real, imag float64
-		_, err := fmt.Sscanf(encodedValue, "(%f+%fi)", &real, &imag)
-		if err != nil {
+		if _, err := fmt.Sscanf(encodedValue, "(%f+%fi)", &real, &imag); err != nil {
 			return err
 		}
 
@@ -300,9 +299,9 @@ func decodeValue(dataType int, encodedValue string, value interface{}) error {
 		case reflect.Complex128:
 		case reflect.Complex64:
 			if isFloat32Overflow(real) {
-				return fmt.Errorf("complex real float32 overflow")
+				return errors.New("complex real float32 overflow")
 			} else if isFloat32Overflow(imag) {
-				return fmt.Errorf("complex imaginary float32 overflow")
+				return errors.New("complex imaginary float32 overflow")
 			}
 		default:
 			return fmt.Errorf("expected complex type but got %v", v.Kind())
@@ -321,8 +320,7 @@ func decodeValue(dataType int, encodedValue string, value interface{}) error {
 			return fmt.Errorf("unexpected encoded bool value: %s", encodedValue)
 		}
 	case dataArraySlice, dataMap, dataStructJson:
-		err := json.Unmarshal([]byte(encodedValue), value)
-		if err != nil {
+		if err := json.Unmarshal([]byte(encodedValue), value); err != nil {
 			return err
 		}
 	default:
@@ -377,8 +375,7 @@ func (kv *KeyValueCSV) lockedRead(key string) (dataItem, bool) {
 }
 
 func (kv *KeyValueCSV) Get(key string, value interface{}) (bool, error) {
-	dataVal, ok := kv.lockedRead(key)
-	if !ok {
+	if dataVal, ok := kv.lockedRead(key); !ok {
 		return false, nil
 	} else if err := decodeValue(dataVal.dataType, dataVal.value, value); err != nil {
 		return false, err
@@ -455,7 +452,7 @@ func (kv *KeyValueCSV) Commit() error {
 					return err
 				}
 				lastStructName = dataVal.structId
-				structFieldNames = []string{}
+				structFieldNames = structFieldNames[:0] // reset
 				for fieldName := range structValue {
 					structFieldNames = append(structFieldNames, fieldName)
 				}
@@ -471,9 +468,9 @@ func (kv *KeyValueCSV) Commit() error {
 				if err := json.Unmarshal([]byte(dataVal.value), &structValue); err != nil {
 					return err
 				}
-				var values []interface{}
-				for _, fieldName := range structFieldNames {
-					values = append(values, structValue[fieldName])
+				values := make([]interface{}, len(structFieldNames))
+				for valueIdx, fieldName := range structFieldNames {
+					values[valueIdx] = structValue[fieldName]
 				}
 
 				if valueJsonBytes, err := json.Marshal(values); err != nil {

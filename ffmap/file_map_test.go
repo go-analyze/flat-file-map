@@ -75,7 +75,7 @@ func TestTypedFFMap(t *testing.T) {
 
 		assert.Equal(t, 0, tfm.Size())
 
-		err := tfm.Set("key", "value")
+		err := tfm.Set("keySize", "value")
 		require.NoError(t, err)
 
 		assert.Equal(t, 1, tfm.Size())
@@ -91,20 +91,20 @@ func TestTypedFFMap(t *testing.T) {
 		t.Parallel()
 		tfm := NewTypedFFMap[string](newMemoryFFMap())
 
-		key := "key"
+		key := "keySetAndGet"
 		value := "value"
 		err := tfm.Set(key, value)
 		require.NoError(t, err)
 
 		result, ok := tfm.Get(key)
 		assert.True(t, ok)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, value, result)
 	})
 	t.Run("ContainsKey", func(t *testing.T) {
 		t.Parallel()
 		tfm := NewTypedFFMap[string](newMemoryFFMap())
-		key := "key"
+		key := "ContainsKey"
 
 		assert.False(t, tfm.ContainsKey(key))
 
@@ -118,7 +118,7 @@ func TestTypedFFMap(t *testing.T) {
 		tfm := NewTypedFFMap[string](newMemoryFFMap())
 		key := "key"
 
-		assert.Len(t, tfm.KeySet(), 0)
+		assert.Empty(t, tfm.KeySet())
 
 		err := tfm.Set(key, "value")
 		require.NoError(t, err)
@@ -131,7 +131,7 @@ func TestTypedFFMap(t *testing.T) {
 		t.Parallel()
 		tfm := NewTypedFFMap[string](newMemoryFFMap())
 
-		key := "key"
+		key := "keyDelete"
 		err := tfm.Set(key, "value")
 		require.NoError(t, err)
 		tfm.Delete(key)
@@ -143,7 +143,7 @@ func TestTypedFFMap(t *testing.T) {
 		t.Parallel()
 		tfm := NewTypedFFMap[string](newMemoryFFMap())
 
-		key := "key"
+		key := "keyDeleteAll"
 		require.NoError(t, tfm.Set(key, "value"))
 		require.NoError(t, tfm.Set("foo"+key, "value"))
 		tfm.DeleteAll()

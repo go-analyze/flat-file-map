@@ -626,7 +626,7 @@ func TestSetError(t *testing.T) {
 			tmpFile, m := makeTestMap(t)
 			defer os.Remove(tmpFile)
 
-			assert.Error(t, m.Set("key", tc.setValue))
+			require.Error(t, m.Set(tc.name, tc.setValue))
 			assert.Equal(t, 0, m.Size())
 		})
 	}
@@ -725,7 +725,7 @@ func TestGetOverflowError(t *testing.T) {
 			require.NoError(t, m.Set(key, tc.setValue))
 
 			found, err := m.Get(key, tc.getValue)
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.False(t, found)
 		})
 	}
@@ -761,7 +761,7 @@ func TestGetInvalidType(t *testing.T) {
 
 			valPtr := reflect.New(reflect.TypeOf(mismatchValue))
 			found, err := m.Get(key, valPtr.Interface())
-			assert.Errorf(t, err, "error expected looking up %s with type %s", key, mismatchKey)
+			require.Errorf(t, err, "error expected looking up %s with type %s", key, mismatchKey)
 			assert.False(t, found)
 		}
 	}
@@ -964,7 +964,7 @@ func TestEncodingSize(t *testing.T) {
 			valueHolder, found := m.data[key1]
 			assert.True(t, found)
 			value := valueHolder.value
-			assert.Equalf(t, tc.expectedStrSize, len(value), "unexpected encoded value: %s", value)
+			assert.Lenf(t, value, tc.expectedStrSize, "unexpected encoded value size: %s", value)
 
 			require.NoError(t, m.Commit())
 			verifyFileSize(t, tmpFile, tc.expectedFileSizeOne)
@@ -1031,7 +1031,7 @@ func TestDelete(t *testing.T) {
 	tmpFile, m := makeTestMap(t)
 	defer os.Remove(tmpFile)
 
-	key := "testKey"
+	key := "keyDelete"
 	value := "testValue"
 	require.NoError(t, m.Set(key, value))
 
@@ -1045,7 +1045,7 @@ func TestDeleteAll(t *testing.T) {
 	tmpFile, m := makeTestMap(t)
 	defer os.Remove(tmpFile)
 
-	key := "key"
+	key := "keyDeleteAll"
 	require.NoError(t, m.Set(key, "value"))
 	require.NoError(t, m.Set("foo"+key, "value"))
 
@@ -1062,7 +1062,7 @@ func verifyEmpty(t *testing.T, m *KeyValueCSV, oldKey string) {
 	require.NoError(t, err)
 	assert.False(t, found)
 	assert.Equal(t, 0, m.Size())
-	assert.Len(t, m.KeySet(), 0)
+	assert.Empty(t, m.KeySet())
 }
 
 func FuzzLoadRecords(f *testing.F) {
