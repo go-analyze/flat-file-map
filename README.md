@@ -1,5 +1,5 @@
 # go-analyze/flat-file-map
-A Golang library for storing key-value data in a flat file.
+A Golang library for storing key-value data in a flat file. Allowing easy data storage within tools optimized for text file storage (like git).
 
 ## Flat File Advantage
 
@@ -30,26 +30,33 @@ import (
 func main() {
     // Open or create a CSV map file.
     db, err := ffmap.OpenCSV("example.csv")
-	// ...
+    // ... err check for IO error
 
     // Set a value in the map.
     err = db.Set("string key", "value1")
-	// ...
+    // ... err check for value encoding error
 
     // Get a value from the map, values can be anything including primitives, strings, maps, and complex structs
     var value map[string]string
     found, err := db.Get("map key", &value)
-	// ...
+    // ... found check for present and error check for value decoding error
+
+    // If working with the same value type, a TypedFFMap can make it easier
+    typedMap := ffmap.NewTypedFFMap[string](db)
+
+    // Typed values can now be retrieved easier
+    stringResult, ok := tfm.Get("string key")
+    // ...
 
     // Commit the current state to the file on disk
     err = db.Commit()
-	// ...
+    // ... err check for IO error
 }
 ```
 
 ## Project Maturity
 
-While this module is dedicated to a small and straightforward purpose, it is in its early stages of development. This means that there may be unexpected changes to the API in the future. Such changes could affect the file format, potentially leading to compatibility issues with file formats currently in use.
+This module is dedicated to a small and straightforward purpose, and because of that we are already finding stability with our Go API. It is still possible we may need to have future changes to the Go API or file format, potentially leading to compatibility issues with file formats currently in use. However we believe we have a solid foundation established that will be easy to support long term.
 
 The release of version `1.0` will signify our confidence in the module's implementation. From this version onward, we commit to ensuring file format compatibility and API stability.
 
