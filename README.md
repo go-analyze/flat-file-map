@@ -1,4 +1,6 @@
 # go-analyze/flat-file-map
+[![Test](https://github.com/go-analyze/flat-file-map/actions/workflows/test.yml/badge.svg)](https://github.com/go-analyze/flat-file-map/actions/workflows/test.yml)
+
 A Golang library for storing key-value data in a flat file. Allowing easy data storage within tools optimized for text file storage (like git).
 
 ## Flat File Advantage
