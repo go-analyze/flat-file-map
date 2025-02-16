@@ -1,6 +1,6 @@
 module github.com/go-analyze/flat-file-map
 
-go 1.21.1
+go 1.21
 
 require github.com/stretchr/testify v1.10.0
 

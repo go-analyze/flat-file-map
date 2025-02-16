@@ -15,10 +15,26 @@ import (
 )
 
 func makeTestMap(t *testing.T) (string, *KeyValueCSV) {
+	if t != nil {
+		t.Helper()
+	}
+
 	tmpfile, err := os.CreateTemp("", "testm.*.csv")
-	require.NoError(t, err)
+	if t == nil {
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		require.NoError(t, err)
+	}
 	m, err := OpenCSV(tmpfile.Name())
-	require.NoError(t, err)
+	if t == nil {
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		require.NoError(t, err)
+	}
 	return tmpfile.Name(), m
 }
 

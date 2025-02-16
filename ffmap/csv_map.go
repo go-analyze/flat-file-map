@@ -1,11 +1,13 @@
 package ffmap
 
 import (
+	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"io"
 	"math"
 	"os"
 	"reflect"
@@ -71,7 +73,11 @@ func (kv *KeyValueCSV) loadFromDisk() error {
 	}
 	defer file.Close()
 
-	reader := csv.NewReader(file)
+	return kv.loadFromReader(file)
+}
+
+func (kv *KeyValueCSV) loadFromReader(r io.Reader) error {
+	reader := csv.NewReader(r)
 	reader.FieldsPerRecord = -1 // disable check, field counts will vary
 	records, err := reader.ReadAll()
 	if err != nil {
@@ -116,7 +122,7 @@ func (kv *KeyValueCSV) loadRecords(records [][]string) error {
 				return fmt.Errorf("unexpected encoded json value count: %v/%v, line: %v",
 					len(values), len(currStructValueNames), i+1)
 			}
-			structValue := make(map[string]interface{})
+			structValue := make(map[string]interface{}, len(currStructValueNames))
 			for j, name := range currStructValueNames {
 				structValue[name] = values[j]
 			}
@@ -184,16 +190,14 @@ func encodeValue(value interface{}) (*dataItem, error) {
 			dataType = dataStructJson
 			// this id is only used for comparison but must remain consistent for a given file version
 			// We have to consider the field names so that don't mix structs which have had field updates between versions
-			fieldNames := make([]string, val.NumField())
-			for i := range fieldNames {
-				fieldNames[i] = val.Type().Field(i).Name
+			combinedFieldName := bytes.Buffer{}
+			for i := 0; i < val.NumField(); i++ {
+				combinedFieldName.WriteString(val.Type().Field(i).Name)
 			}
-
 			structId = strings.ReplaceAll(val.Type().String(), " ", "")
-			if len(fieldNames) > 0 {
-				concatenatedFieldNames := strings.Join(fieldNames, "")
+			if combinedFieldName.Len() > 0 {
 				crc32q := crc32.MakeTable(crc32.Castagnoli)
-				structId += "-" + strconv.FormatUint(uint64(crc32.Checksum([]byte(concatenatedFieldNames), crc32q)), 36)
+				structId += "-" + strconv.FormatUint(uint64(crc32.Checksum(combinedFieldName.Bytes(), crc32q)), 36)
 			}
 		}
 		bytes, err := json.Marshal(v)
@@ -420,6 +424,10 @@ func (kv *KeyValueCSV) Commit() error {
 	}
 	defer file.Close()
 
+	return kv.commitTo(file)
+}
+
+func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 	// sort keys so output is in a consistent order
 	keys := kv.unlockedKeySet()
 	slices.SortFunc(keys, func(a, b string) int {
@@ -435,9 +443,9 @@ func (kv *KeyValueCSV) Commit() error {
 		}
 	})
 
-	writer := csv.NewWriter(file)
+	writer := csv.NewWriter(w)
 	// write header at start
-	if err = writer.Write([]string{currentFileVersion}); err != nil {
+	if err := writer.Write([]string{currentFileVersion}); err != nil {
 		return err
 	}
 	var lastStructName string
@@ -448,7 +456,7 @@ func (kv *KeyValueCSV) Commit() error {
 			if dataVal.structId != lastStructName && i+1 < len(keys) && kv.data[keys[i+1]].structId == dataVal.structId {
 				// we have at least one more value of this type, so encode a header line
 				var structValue map[string]interface{}
-				if err = json.Unmarshal([]byte(dataVal.value), &structValue); err != nil {
+				if err := json.Unmarshal([]byte(dataVal.value), &structValue); err != nil {
 					return err
 				}
 				lastStructName = dataVal.structId
