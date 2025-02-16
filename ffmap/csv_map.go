@@ -397,16 +397,7 @@ func (kv *KeyValueCSV) KeySet() []string {
 	kv.rwLock.RLock()
 	defer kv.rwLock.RUnlock()
 
-	return kv.unlockedKeySet()
-}
-
-// unlockedKeySet must have lock acquired before invoking, use KeySet if you don't already hold a lock.
-func (kv *KeyValueCSV) unlockedKeySet() []string {
-	keys := make([]string, 0, len(kv.data))
-	for key := range kv.data {
-		keys = append(keys, key)
-	}
-	return keys
+	return mapKeys(kv.data)
 }
 
 func (kv *KeyValueCSV) Commit() error {
@@ -429,7 +420,7 @@ func (kv *KeyValueCSV) Commit() error {
 
 func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 	// sort keys so output is in a consistent order
-	keys := kv.unlockedKeySet()
+	keys := mapKeys(kv.data)
 	slices.SortFunc(keys, func(a, b string) int {
 		dataVal1 := kv.data[a]
 		dataVal2 := kv.data[b]
@@ -455,16 +446,24 @@ func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 		if dataVal.dataType == dataStructJson {
 			if dataVal.structId != lastStructName && i+1 < len(keys) && kv.data[keys[i+1]].structId == dataVal.structId {
 				// we have at least one more value of this type, so encode a header line
-				var structValue map[string]interface{}
-				if err := json.Unmarshal([]byte(dataVal.value), &structValue); err != nil {
-					return err
+				// first we need to inspect all fields of the struct, we need to check all instances
+				// because omitempty may have omitted default fields
+				var allStructFieldNames [][]string
+				for i2 := i; i2 < len(keys); i2++ {
+					val2 := kv.data[keys[i2]]
+					if dataVal.structId != val2.structId {
+						break
+					}
+
+					var structValue map[string]interface{}
+					if err := json.Unmarshal([]byte(val2.value), &structValue); err != nil {
+						return err
+					}
+					allStructFieldNames = append(allStructFieldNames, mapKeys(structValue))
 				}
-				lastStructName = dataVal.structId
-				structFieldNames = structFieldNames[:0] // reset
-				for fieldName := range structValue {
-					structFieldNames = append(structFieldNames, fieldName)
-				}
+				structFieldNames = sliceUniqueUnion(allStructFieldNames)
 				slices.Sort(structFieldNames) // sort for consistency
+				lastStructName = dataVal.structId
 
 				if err := writer.Write(append([]string{strconv.Itoa(dataStructHeader), dataVal.structId}, structFieldNames...)); err != nil {
 					return err

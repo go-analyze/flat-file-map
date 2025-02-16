@@ -106,6 +106,35 @@ func TestOpenAndCommit(t *testing.T) {
 			assert.Equal(t, expectedValue, actualValue)
 		}
 	})
+	t.Run("SaveAndLoadCustomJsonStruct", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, mOrig := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		var values []TestCustomJsonStruct
+		for i := 0; i < 200; i++ {
+			value := TestCustomJsonStruct{Value: fmt.Sprintf("value%d", i), ZValue: "z"}
+			if i%11 == 0 {
+				value.EmptyInt = 10
+			} else if i%7 == 0 {
+				value.EmptyStr = "foo"
+			}
+			values = append(values, value)
+			require.NoError(t, mOrig.Set(value.Value, value))
+		}
+		require.NoError(t, mOrig.Commit())
+
+		mNew, err := OpenCSV(tmpFile)
+		require.NoError(t, err)
+
+		for _, expectedValue := range values {
+			var actualValue TestCustomJsonStruct
+			found, err := mNew.Get(expectedValue.Value, &actualValue)
+			require.NoError(t, err)
+			assert.True(t, found)
+			assert.Equal(t, expectedValue, actualValue)
+		}
+	})
 	t.Run("CommitOrderString", func(t *testing.T) {
 		t.Parallel()
 		tmpFile1, m1 := makeTestMap(t)
@@ -168,28 +197,31 @@ func TestOpenAndCommit(t *testing.T) {
 		defer os.Remove(tmpFile)
 
 		testData := map[string]interface{}{
-			"string":           "foo",
-			"bool":             true,
-			"float32":          float32(3.14),
-			"float64":          3.1415,
-			"int":              42,
-			"int8":             int8(8),
-			"int16":            int16(16),
-			"int32":            int32(32),
-			"int64":            int64(64),
-			"uint":             uint(1),
-			"uint8":            uint8(8),
-			"uint16":           uint16(16),
-			"uint32":           uint32(32),
-			"uint64":           uint64(64),
-			"complex64":        complex64(complex(5, 6)),
-			"complex128":       complex(5, 6),
-			"intSlice":         []int{1, 2, 3, 4},
-			"int64Slice":       []int64{1000, 2000, 3000, 4000},
-			"stringSlice":      []string{"a", "b", "c"},
-			"byteSlice":        []byte{0x01, 0x02, 0x03, 0x04},
-			"namedStructSlice": []TestNamedStruct{{Value: "foo", ID: 1}, {Value: "bar", ID: 2}},
-			"mapStringString":  map[string]string{"key1": "value1", "key2": "value2"},
+			"string":             "foo",
+			"bool":               true,
+			"float32":            float32(3.14),
+			"float64":            3.1415,
+			"int":                42,
+			"int8":               int8(8),
+			"int16":              int16(16),
+			"int32":              int32(32),
+			"int64":              int64(64),
+			"uint":               uint(1),
+			"uint8":              uint8(8),
+			"uint16":             uint16(16),
+			"uint32":             uint32(32),
+			"uint64":             uint64(64),
+			"complex64":          complex64(complex(5, 6)),
+			"complex128":         complex(5, 6),
+			"namedStruct":        TestNamedStruct{Value: "foo", ID: 1},
+			"customJStruct":      TestCustomJsonStruct{Value: "foo", ZValue: "z"},
+			"intSlice":           []int{1, 2, 3, 4},
+			"int64Slice":         []int64{1000, 2000, 3000, 4000},
+			"stringSlice":        []string{"a", "b", "c"},
+			"byteSlice":          []byte{0x01, 0x02, 0x03, 0x04},
+			"namedStructSlice":   []TestNamedStruct{{Value: "foo", ID: 1}, {Value: "bar", ID: 2}},
+			"customJStructSlice": []TestCustomJsonStruct{{Value: "bar", ZValue: "z"}, {Value: "foo", ZValue: "z"}},
+			"mapStringString":    map[string]string{"key1": "value1", "key2": "value2"},
 		}
 
 		for key, value := range testData {
@@ -258,6 +290,14 @@ type TestNamedStruct struct {
 	Map   map[string]TestNamedStruct
 	Time  time.Time
 	Bytes []byte
+}
+
+type TestCustomJsonStruct struct {
+	Value    string  `json:"v"`
+	EmptyStr string  `json:"emptyStr,omitempty"`
+	EmptyInt int     `json:"emptyInt,omitempty"`
+	NilPtr   *string `json:"nilPtr,omitempty"`
+	ZValue   string  `json:"zv"`
 }
 
 func TestEncodeValueType(t *testing.T) {
@@ -358,6 +398,13 @@ func TestEncodeValueType(t *testing.T) {
 				Value: "foo",
 				ID:    123,
 				Map:   map[string]TestNamedStruct{"bar": {Value: "bar", ID: 987, Bool: true}},
+			},
+			expectedDataType: dataStructJson,
+		},
+		{
+			name: "CustomJsonStruct",
+			value: TestCustomJsonStruct{
+				Value: "foo",
 			},
 			expectedDataType: dataStructJson,
 		},
@@ -541,6 +588,23 @@ func TestSetAndGet(t *testing.T) {
 				Map:   map[string]TestNamedStruct{"bar": {Value: "bar", ID: 987, Bool: true}},
 			},
 			getValue: new(TestNamedStruct),
+		},
+		{
+			name: "CustomJsonStructEmpty",
+			setValue: TestCustomJsonStruct{
+				Value: "foo",
+			},
+			getValue: new(TestCustomJsonStruct),
+		},
+		{
+			name: "CustomJsonStructFilled",
+			setValue: TestCustomJsonStruct{
+				Value:    "foo",
+				EmptyStr: "str",
+				EmptyInt: -1,
+				ZValue:   "z",
+			},
+			getValue: new(TestCustomJsonStruct),
 		},
 		{
 			name:     "Map",
@@ -921,6 +985,15 @@ func TestEncodingSize(t *testing.T) {
 			expectedStrSize:     205,
 			expectedFileSizeOne: 275,
 			expectedFileSizeTwo: 484,
+		},
+		{
+			name: "CustomJsonStructEmpty",
+			value: TestCustomJsonStruct{
+				Value: "foo",
+			},
+			expectedStrSize:     19,
+			expectedFileSizeOne: 69,
+			expectedFileSizeTwo: 148,
 		},
 		{
 			name:                "Map",
