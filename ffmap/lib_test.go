@@ -35,7 +35,8 @@ func TestMapKeys(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := mapKeys(tt.input)
 
-			assert.Equal(t, tt.expect, got)
+			assert.Len(t, got, len(tt.expect))
+			assert.ElementsMatch(t, tt.expect, got)
 		})
 	}
 }
@@ -44,51 +45,53 @@ func TestSliceUniqueUnion(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name  string
-		input [][]int
-		want  []int
+		name   string
+		input  [][]int
+		expect []int
 	}{
 		{
-			name:  "unique_values",
-			input: [][]int{{1, 2}, {3, 4}},
-			want:  []int{1, 2, 3, 4},
+			name:   "unique_values",
+			input:  [][]int{{1, 2}, {3, 4}},
+			expect: []int{1, 2, 3, 4},
 		},
 		{
-			name:  "middle_overlapping_values",
-			input: [][]int{{1, 2}, {2, 3}, {3, 4}},
-			want:  []int{1, 2, 3, 4},
+			name:   "middle_overlapping_values",
+			input:  [][]int{{1, 2}, {2, 3}, {3, 4}},
+			expect: []int{1, 2, 3, 4},
 		},
 		{
-			name:  "single_slice",
-			input: [][]int{{1, 2, 3}},
-			want:  []int{1, 2, 3},
+			name:   "single_slice",
+			input:  [][]int{{1, 2, 3}},
+			expect: []int{1, 2, 3},
 		},
 		{
-			name:  "empty_slice",
-			input: [][]int{},
-			want:  nil,
+			name:   "empty_slice",
+			input:  [][]int{},
+			expect: nil,
 		},
 		{
-			name:  "nil",
-			input: nil,
-			want:  nil,
+			name:   "nil",
+			input:  nil,
+			expect: nil,
 		},
 		{
-			name:  "nested_empty_slices",
-			input: [][]int{{}, {}},
-			want:  []int{},
+			name:   "nested_empty_slices",
+			input:  [][]int{{}, {}},
+			expect: []int{},
 		},
 		{
-			name:  "duplicate_values_in_slice",
-			input: [][]int{{1, 1, 2}, {2, 3, 3}},
-			want:  []int{1, 2, 3},
+			name:   "duplicate_values_in_slice",
+			input:  [][]int{{1, 1, 2}, {2, 3, 3}},
+			expect: []int{1, 2, 3},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := sliceUniqueUnion(tt.input)
-			assert.ElementsMatch(t, tt.want, got)
+
+			assert.Len(t, got, len(tt.expect))
+			assert.ElementsMatch(t, tt.expect, got)
 		})
 	}
 }
