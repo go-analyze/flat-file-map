@@ -154,7 +154,7 @@ func encodeValue(value interface{}) (*dataItem, error) {
 	var strVal string
 	switch v := value.(type) {
 	case nil:
-		return nil, errors.New("cannot encode nil value")
+		return nil, errors.New("can not encode nil value")
 	case string:
 		dataType = dataString
 		strVal = v
@@ -179,18 +179,14 @@ func encodeValue(value interface{}) (*dataItem, error) {
 		strVal = fmt.Sprintf("%v", v)
 	default:
 		val := reflect.ValueOf(value)
-		if val.Kind() == reflect.Ptr {
-			if val.IsNil() {
-				return nil, errors.New("cannot encode nil pointer")
-			}
-			val = val.Elem() // get the value the pointer references
+		if val.Kind() == reflect.Ptr { // If it's a pointer, get the value it points to
+			val = val.Elem()
 		}
-		switch val.Kind() {
-		case reflect.Slice, reflect.Array:
+		if val.Kind() == reflect.Slice || val.Kind() == reflect.Array {
 			dataType = dataArraySlice
-		case reflect.Map:
+		} else if val.Kind() == reflect.Map {
 			dataType = dataMap
-		default:
+		} else {
 			dataType = dataStructJson
 			// this id is only used for comparison but must remain consistent for a given file version
 			// We have to consider the field names so that don't mix structs which have had field updates between versions
@@ -204,173 +200,13 @@ func encodeValue(value interface{}) (*dataItem, error) {
 				structId += "-" + strconv.FormatUint(uint64(crc32.Checksum(combinedFieldName.Bytes(), crc32q)), 36)
 			}
 		}
-		bytes, err := json.Marshal(stripZeroFields(val))
+		bytes, err := json.Marshal(v)
 		if err != nil {
 			return nil, err
 		}
 		strVal = string(bytes)
 	}
 	return &dataItem{dataType: dataType, structId: structId, value: strVal}, nil
-}
-
-// stripZeroFields removes default / empty / zero-value fields from a struct while preserving non-nil pointers
-// and correctly serializing custom json.Marshaler types. It also preserves []byte so that json.Marshal
-// will encode them as base64, and preserves fixed‐size byte arrays so that they remain JSON arrays.
-//
-// This allows us to reduce our stored json to only what is necessary to accurately recreate the struct state on Get.
-func stripZeroFields(v reflect.Value) interface{} {
-	if !v.IsValid() {
-		return nil
-	}
-
-	// Special-case: for byte slices and arrays, return as-is so that json.Marshal encodes them as base64
-	if (v.Kind() == reflect.Slice || v.Kind() == reflect.Array) && v.Type().Elem().Kind() == reflect.Uint8 {
-		return v.Interface()
-	}
-
-	// If the type implements json.Marshaler, use that.
-	if v.CanInterface() {
-		if marshaler, ok := v.Interface().(json.Marshaler); ok {
-			if jsonBytes, err := marshaler.MarshalJSON(); err == nil {
-				var unmarshaled interface{}
-				if err := json.Unmarshal(jsonBytes, &unmarshaled); err == nil {
-					return unmarshaled
-				}
-			}
-		}
-	}
-
-	// Handle pointer: if non-nil, and if its element is considered empty (for non-collection types)
-	// then return the pointer (preserving an explicit pointer to an empty or default value),
-	// otherwise process its element.
-	if v.Kind() == reflect.Ptr {
-		if v.IsNil() {
-			return nil
-		}
-		elem := v.Elem()
-		// For slices and maps we want to process the element normally,
-		// so only shortcut if the pointer points to a non-collection empty value.
-		if elem.Kind() != reflect.Slice && elem.Kind() != reflect.Map && isZeroValue(elem) {
-			return v.Interface()
-		}
-		return stripZeroFields(elem)
-	}
-
-	switch v.Kind() {
-	case reflect.Struct:
-		out := make(map[string]interface{})
-		typ := v.Type()
-		for i := 0; i < v.NumField(); i++ {
-			fieldType := typ.Field(i)
-			if fieldType.PkgPath != "" {
-				continue // Skip unexported fields
-			}
-			fieldVal := v.Field(i)
-			jsonKey := fieldType.Name
-			if tag, ok := fieldType.Tag.Lookup("json"); ok {
-				tagParts := strings.Split(tag, ",")
-				if tagParts[0] == "-" {
-					continue // omit fields with json:"-"
-				} else if tagParts[0] != "" {
-					jsonKey = tagParts[0]
-				}
-			}
-			// For slices and maps, preserve them if non-nil (even if empty).
-			if fieldVal.Kind() == reflect.Slice || fieldVal.Kind() == reflect.Map {
-				if fieldVal.IsNil() {
-					continue
-				}
-			} else if isZeroValue(fieldVal) {
-				continue
-			}
-			out[jsonKey] = stripZeroFields(fieldVal)
-		}
-		// Even if all fields were omitted, we want to preserve an empty struct
-		// so that a pointer to an empty struct remains non-nil.
-		return out
-	case reflect.Slice:
-		if v.Len() == 0 {
-			if v.IsNil() {
-				return nil
-			}
-			return []interface{}{}
-		}
-		out := make([]interface{}, v.Len())
-		for i := 0; i < v.Len(); i++ {
-			out[i] = stripZeroFields(v.Index(i))
-		}
-		return out
-	case reflect.Array:
-		// Arrays cannot be nil so we always process them.
-		if v.Len() == 0 {
-			return v.Interface()
-		}
-		out := make([]interface{}, v.Len())
-		for i := 0; i < v.Len(); i++ {
-			out[i] = stripZeroFields(v.Index(i))
-		}
-		return out
-	case reflect.Map:
-		if v.Len() == 0 {
-			if v.IsNil() {
-				return nil
-			}
-			return map[string]interface{}{}
-		}
-		out := make(map[string]interface{})
-		for _, key := range v.MapKeys() {
-			// use fmt.Sprint to ensure JSON-compatible keys
-			out[fmt.Sprint(key.Interface())] = stripZeroFields(v.MapIndex(key))
-		}
-		return out
-	default:
-		if isZeroValue(v) {
-			return nil
-		}
-		return v.Interface()
-	}
-}
-
-// isEmptyValue determines whether a reflect.Value is its type's zero value.
-// For slices and maps emptiness is defined by nil rather than Len()==0,
-// so that non-nil empty slices/maps (which the user explicitly provided) are preserved.
-func isZeroValue(v reflect.Value) bool {
-	switch v.Kind() {
-	case reflect.Bool:
-		return !v.Bool()
-	case reflect.String:
-		return v.Len() == 0
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return v.Int() == 0
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return v.Uint() == 0
-	case reflect.Float32, reflect.Float64:
-		return v.Float() == 0
-	case reflect.Slice, reflect.Map:
-		return v.IsNil() // only consider nil to match prior default pointer behavior
-	case reflect.Array:
-		return v.Len() == 0
-	case reflect.Ptr, reflect.Interface:
-		return v.IsNil()
-	case reflect.Struct:
-		// If the struct implements json.Marshaler, check its output.
-		if v.CanInterface() {
-			if marshaler, ok := v.Interface().(json.Marshaler); ok {
-				if jsonBytes, err := marshaler.MarshalJSON(); err == nil {
-					s := string(jsonBytes)
-					return s == `""` || s == `{}`
-				}
-			}
-		}
-		for i := 0; i < v.NumField(); i++ {
-			if !isZeroValue(v.Field(i)) {
-				return false
-			}
-		}
-		return true
-	default:
-		return false
-	}
 }
 
 func decodeValue(dataType int, encodedValue string, value interface{}) error {

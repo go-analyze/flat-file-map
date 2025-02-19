@@ -1,7 +1,6 @@
 package ffmap
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -38,99 +37,6 @@ func makeTestMap(t *testing.T) (string, *KeyValueCSV) {
 	}
 	return tmpfile.Name(), m
 }
-
-type TestNamedStruct struct {
-	Value     string
-	ID        int
-	Float     float64
-	Bool      bool
-	Map       map[string]TestNamedStruct
-	MapIntKey map[int]string
-	Time      time.Time
-	Bytes     []byte
-	IntSlice  []int
-}
-
-type TestPointerStruct struct {
-	T *time.Time
-	I *int
-	S *string
-	B *bool
-	F *float64
-}
-
-type TestCustomJsonStruct struct {
-	Value    string  `json:"v"`
-	EmptyStr string  `json:"emptyStr,omitempty"`
-	EmptyInt int     `json:"emptyInt,omitempty"`
-	NilPtr   *string `json:"nilPtr,omitempty"`
-	ZValue   string  `json:"zv"`
-}
-
-type TestNestedStruct struct {
-	Inner TestNamedStruct
-	Ptr   *TestNamedStruct
-}
-
-type TestStructWithSlice struct {
-	Values []TestNamedStruct
-}
-
-type TestStructWithEmbeddedAnonymous struct {
-	Embedded struct {
-		Name string
-		ID   int
-	}
-	Extra string
-}
-
-type TestStructWithPointerToAnonymous struct {
-	Ptr *struct {
-		Name string
-		ID   int
-	}
-}
-
-type TestStructWithPointerToEmpty struct {
-	Ptr *struct{}
-}
-
-type TestCustomMarshaler struct {
-	Value   string
-	Encoded json.RawMessage
-}
-
-type TestStructWithEmbeddedCustomMarshaler struct {
-	Embedded TestCustomMarshaler
-	Extra    string
-}
-
-type TestStructWithMultiPointer struct {
-	PPP ***int
-}
-
-type TestStructWithDeepNesting struct {
-	Level1 struct {
-		Level2 struct {
-			Level3 struct {
-				Value string
-				Num   int
-			}
-		}
-	}
-}
-
-type TestStructWithDeeplyNestedMap struct {
-	Data map[string]interface{}
-}
-
-var (
-	defaultStr = ""
-	defaultI   = 0
-	defaultT   = time.Time{}
-	defaultB   = false
-	defaultF   = 0.0
-)
 
 func TestOpenAndCommit(t *testing.T) {
 	t.Run("OpenEmpty", func(t *testing.T) {
@@ -376,9 +282,26 @@ func TestSize(t *testing.T) {
 	}
 }
 
+type TestNamedStruct struct {
+	Value string
+	ID    int
+	Float float64
+	Bool  bool
+	Map   map[string]TestNamedStruct
+	Time  time.Time
+	Bytes []byte
+}
+
+type TestCustomJsonStruct struct {
+	Value    string  `json:"v"`
+	EmptyStr string  `json:"emptyStr,omitempty"`
+	EmptyInt int     `json:"emptyInt,omitempty"`
+	NilPtr   *string `json:"nilPtr,omitempty"`
+	ZValue   string  `json:"zv"`
+}
+
 func TestEncodeValueType(t *testing.T) {
 	t.Parallel()
-
 	testCases := []struct {
 		name             string
 		value            interface{}
@@ -479,15 +402,6 @@ func TestEncodeValueType(t *testing.T) {
 			expectedDataType: dataStructJson,
 		},
 		{
-			name: "PointerStruct",
-			value: TestPointerStruct{
-				S: &defaultStr,
-				I: &defaultI,
-				T: &defaultT,
-			},
-			expectedDataType: dataStructJson,
-		},
-		{
 			name: "CustomJsonStruct",
 			value: TestCustomJsonStruct{
 				Value: "foo",
@@ -561,46 +475,6 @@ func TestEncodeValueType(t *testing.T) {
 			name:             "StructPointer",
 			value:            &TestNamedStruct{Value: "foo", ID: 123},
 			expectedDataType: dataStructJson,
-		},
-		{
-			name:             "Float32Slice",
-			value:            []float32{1.1, 2.2, 3.3},
-			expectedDataType: dataArraySlice,
-		},
-		{
-			name:             "Float64Slice",
-			value:            []float64{1.1, 2.2, 3.3},
-			expectedDataType: dataArraySlice,
-		},
-		{
-			name:             "UintSlice",
-			value:            []uint{1, 2, 3, 4},
-			expectedDataType: dataArraySlice,
-		},
-		{
-			name:             "NestedIntSlice",
-			value:            [][]int{{1, 2}, {3, 4}},
-			expectedDataType: dataArraySlice,
-		},
-		{
-			name:             "NestedStringSlice",
-			value:            [][]string{{"a", "b"}, {"c", "d"}},
-			expectedDataType: dataArraySlice,
-		},
-		{
-			name:             "EmptySlice",
-			value:            []int{},
-			expectedDataType: dataArraySlice,
-		},
-		{
-			name:             "EmptyArray",
-			value:            [0]int{},
-			expectedDataType: dataArraySlice,
-		},
-		{
-			name:             "PointerSlice",
-			value:            []*int{new(int), new(int)},
-			expectedDataType: dataArraySlice,
 		},
 	}
 
@@ -709,33 +583,11 @@ func TestSetAndGet(t *testing.T) {
 		{
 			name: "NamedStruct",
 			setValue: TestNamedStruct{
-				Value:     "foo",
-				ID:        123,
-				Map:       map[string]TestNamedStruct{"bar": {Value: "bar", ID: 987, Bool: true}},
-				MapIntKey: map[int]string{1: "one", 2: "two"},
-				Time:      time.Date(2025, 2, 16, 10, 20, 40, 20, time.UTC),
-				IntSlice:  []int{0, 0, 0, 0},
+				Value: "foo",
+				ID:    123,
+				Map:   map[string]TestNamedStruct{"bar": {Value: "bar", ID: 987, Bool: true}},
 			},
 			getValue: new(TestNamedStruct),
-		},
-		{
-			name:     "NamedStructEmpty",
-			setValue: TestNamedStruct{},
-			getValue: new(TestNamedStruct),
-		},
-		{
-			name:     "NamedStructPointer",
-			setValue: &TestNamedStruct{},
-			getValue: new(*TestNamedStruct),
-		},
-		{
-			name: "PointerStruct",
-			setValue: TestPointerStruct{
-				S: &defaultStr,
-				I: &defaultI,
-				T: &defaultT,
-			},
-			getValue: new(TestPointerStruct),
 		},
 		{
 			name: "CustomJsonStructEmpty",
@@ -817,591 +669,6 @@ func TestSetAndGet(t *testing.T) {
 			setValue: &TestNamedStruct{Value: "foo", ID: 123},
 			getValue: new(*TestNamedStruct),
 		},
-		{
-			name:     "NestedMap",
-			setValue: map[string]map[string]int{"outer": {"inner": 42}},
-			getValue: new(map[string]map[string]int),
-		},
-		{
-			name:     "MixedTypeSlice",
-			setValue: []interface{}{"two", 3.0},
-			getValue: new([]interface{}),
-		},
-		{
-			name:     "PointerSlice",
-			setValue: []*int{new(int), new(int)},
-			getValue: new([]*int),
-		},
-		{
-			name:     "UintSlice",
-			setValue: []uint{10, 20, 30},
-			getValue: new([]uint),
-		},
-		{
-			name:     "Uint8Slice",
-			setValue: []uint8{1, 2, 3, 4},
-			getValue: new([]uint8),
-		},
-		{
-			name:     "Uint16Slice",
-			setValue: []uint16{100, 200, 300},
-			getValue: new([]uint16),
-		},
-		{
-			name:     "Uint32Slice",
-			setValue: []uint32{1000, 2000, 3000},
-			getValue: new([]uint32),
-		},
-		{
-			name:     "Uint64Slice",
-			setValue: []uint64{10000, 20000, 30000},
-			getValue: new([]uint64),
-		},
-		{
-			name:     "Float32Slice",
-			setValue: []float32{3.14, 6.28},
-			getValue: new([]float32),
-		},
-		{
-			name:     "Float64Slice",
-			setValue: []float64{3.1415, 2.718},
-			getValue: new([]float64),
-		},
-		{
-			name:     "BoolSlice",
-			setValue: []bool{true, false, true},
-			getValue: new([]bool),
-		},
-		{
-			name:     "UintArray",
-			setValue: [4]uint{10, 20, 30, 40},
-			getValue: new([4]uint),
-		},
-		{
-			name:     "Uint8Array",
-			setValue: [4]uint8{1, 2, 3, 4},
-			getValue: new([4]uint8),
-		},
-		{
-			name:     "Uint16Array",
-			setValue: [4]uint16{100, 200, 300, 400},
-			getValue: new([4]uint16),
-		},
-		{
-			name:     "Uint32Array",
-			setValue: [4]uint32{1000, 2000, 3000, 4000},
-			getValue: new([4]uint32),
-		},
-		{
-			name:     "Uint64Array",
-			setValue: [4]uint64{10000, 20000, 30000, 40000},
-			getValue: new([4]uint64),
-		},
-		{
-			name:     "Float32Array",
-			setValue: [4]float32{3.14, 6.28, 9.42, 12.56},
-			getValue: new([4]float32),
-		},
-		{
-			name:     "Float64Array",
-			setValue: [4]float64{3.1415, 2.718, 1.618, 0.577},
-			getValue: new([4]float64),
-		},
-		{
-			name:     "BoolArray",
-			setValue: [4]bool{true, false, true, false},
-			getValue: new([4]bool),
-		},
-		{
-			name: "NestedStruct",
-			setValue: TestNestedStruct{
-				Inner: TestNamedStruct{
-					Value: "nested",
-					ID:    999,
-				},
-				Ptr: &TestNamedStruct{
-					Value: "pointer",
-					ID:    888,
-				},
-			},
-			getValue: new(TestNestedStruct),
-		},
-		{
-			name: "StructWithSlice",
-			setValue: TestStructWithSlice{
-				Values: []TestNamedStruct{
-					{Value: "first", ID: 1},
-					{Value: "second", ID: 2},
-				},
-			},
-			getValue: new(TestStructWithSlice),
-		},
-		{
-			name: "PointerStructExpanded",
-			setValue: TestPointerStruct{
-				S: &defaultStr,
-				I: &defaultI,
-				T: &defaultT,
-				B: &defaultB,
-				F: &defaultF,
-			},
-			getValue: new(TestPointerStruct),
-		},
-		{
-			name:     "StructSliceAnonymous",
-			setValue: []struct{ Name string }{{Name: "Alice"}, {Name: "Bob"}},
-			getValue: new([]struct{ Name string }),
-		},
-		{
-			name:     "PointerStructSlice",
-			setValue: []*TestPointerStruct{{S: &defaultStr, I: &defaultI}, {T: &defaultT, F: &defaultF}},
-			getValue: new([]*TestPointerStruct),
-		},
-		{
-			name:     "EmptyStruct",
-			setValue: struct{}{},
-			getValue: new(struct{}),
-		},
-		{
-			name: "StructWithMixedFields",
-			setValue: struct {
-				Str  string
-				Ptr  *string
-				Bool bool
-				Num  int
-			}{Str: "test", Ptr: &defaultStr, Bool: true, Num: 42},
-			getValue: new(struct {
-				Str  string
-				Ptr  *string
-				Bool bool
-				Num  int
-			}),
-		},
-		{
-			name: "StructWithEmbeddedStruct",
-			setValue: struct {
-				Embedded TestNamedStruct
-				Extra    string
-			}{Embedded: TestNamedStruct{Value: "embed", ID: 999}, Extra: "extra"},
-			getValue: new(struct {
-				Embedded TestNamedStruct
-				Extra    string
-			}),
-		},
-		{
-			name: "PointerToEmptyStruct",
-			setValue: &struct {
-				Name string
-			}{},
-			getValue: new(*struct {
-				Name string
-			}),
-		},
-		{
-			name:     "RuneSlice",
-			setValue: []rune{'a', 'b', 'c'},
-			getValue: new([]rune),
-		},
-		{
-			name:     "ByteSliceWithZeros",
-			setValue: []byte{0, 1, 2, 3, 0},
-			getValue: new([]byte),
-		},
-		{
-			name:     "EmptyByteSlice",
-			setValue: []byte{},
-			getValue: new([]byte),
-		},
-		{
-			name:     "NilByteSlice",
-			setValue: ([]byte)(nil),
-			getValue: new([]byte),
-		},
-		{
-			name:     "StructPointerSlice",
-			setValue: []*TestNamedStruct{{Value: "first", ID: 1}, nil, {Value: "second", ID: 2}},
-			getValue: new([]*TestNamedStruct),
-		},
-		{
-			name: "StructWithEmbeddedAnonymousStruct",
-			setValue: TestStructWithEmbeddedAnonymous{
-				Embedded: struct {
-					Name string
-					ID   int
-				}{Name: "embedded", ID: 777},
-				Extra: "extra",
-			},
-			getValue: new(TestStructWithEmbeddedAnonymous),
-		},
-		{
-			name: "StructWithPointerToAnonymousStruct",
-			setValue: TestStructWithPointerToAnonymous{
-				Ptr: &struct {
-					Name string
-					ID   int
-				}{Name: "ptrAnon", ID: 888},
-			},
-			getValue: new(TestStructWithPointerToAnonymous),
-		},
-		{
-			name: "StructWithPointerToEmptyStruct",
-			setValue: TestStructWithPointerToEmpty{
-				Ptr: &struct{}{},
-			},
-			getValue: new(TestStructWithPointerToEmpty),
-		},
-		{
-			name: "MapWithEmptyValues",
-			setValue: map[string]interface{}{
-				"emptyStr":   "",
-				"emptyFloat": 0.0,
-				"emptyBool":  false,
-			},
-			getValue: new(map[string]interface{}),
-		},
-		{
-			name: "NestedPointerMap",
-			setValue: map[string]*TestNamedStruct{
-				"key1": {Value: "nested1", ID: 111},
-				"key2": nil,
-			},
-			getValue: new(map[string]*TestNamedStruct),
-		},
-		{
-			name: "StructWithInterfaceField",
-			setValue: struct {
-				Value interface{}
-			}{Value: "interfaceString"},
-			getValue: new(struct {
-				Value interface{}
-			}),
-		},
-		{
-			name: "StructWithEmbeddedAnonymousPointer",
-			setValue: struct {
-				Ptr *struct {
-					Name string
-					ID   int
-				}
-			}{Ptr: &struct {
-				Name string
-				ID   int
-			}{Name: "anonymous", ID: 789}},
-			getValue: new(struct {
-				Ptr *struct {
-					Name string
-					ID   int
-				}
-			}),
-		},
-		{
-			name: "DeeplyNestedStruct",
-			setValue: struct {
-				Level1 struct {
-					Level2 struct {
-						Level3 struct {
-							Value string
-							Num   int
-						}
-					}
-				}
-			}{
-				Level1: struct {
-					Level2 struct {
-						Level3 struct {
-							Value string
-							Num   int
-						}
-					}
-				}{
-					Level2: struct {
-						Level3 struct {
-							Value string
-							Num   int
-						}
-					}{
-						Level3: struct {
-							Value string
-							Num   int
-						}{Value: "deep", Num: 100},
-					},
-				},
-			},
-			getValue: new(struct {
-				Level1 struct {
-					Level2 struct {
-						Level3 struct {
-							Value string
-							Num   int
-						}
-					}
-				}
-			}),
-		},
-		{
-			name: "LargeIntSlice",
-			setValue: []int{
-				1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-			},
-			getValue: new([]int),
-		},
-		{
-			name: "MapWithMixedTypes",
-			setValue: map[string]interface{}{
-				"string": "foo",
-				"float":  42.0,
-				"bool":   true,
-			},
-			getValue: new(map[string]interface{}),
-		},
-		{
-			name:     "CustomMarshalerStruct",
-			setValue: TestCustomMarshaler{Value: "test", Encoded: json.RawMessage(`"custom"`)},
-			getValue: new(TestCustomMarshaler),
-		},
-		{
-			name: "StructWithEmbeddedCustomMarshaler",
-			setValue: TestStructWithEmbeddedCustomMarshaler{
-				Embedded: TestCustomMarshaler{Value: "inner", Encoded: json.RawMessage(`"encoded"`)},
-				Extra:    "extra",
-			},
-			getValue: new(TestStructWithEmbeddedCustomMarshaler),
-		},
-		{
-			name: "StructWithMultiPointer",
-			setValue: TestStructWithMultiPointer{
-				PPP: func() ***int {
-					p := &defaultI
-					pp := &p
-					ppp := &pp
-					return ppp
-				}(),
-			},
-			getValue: new(TestStructWithMultiPointer),
-		},
-		{
-			name: "StructWithDeepNesting",
-			setValue: TestStructWithDeepNesting{
-				Level1: struct {
-					Level2 struct {
-						Level3 struct {
-							Value string
-							Num   int
-						}
-					}
-				}{
-					Level2: struct {
-						Level3 struct {
-							Value string
-							Num   int
-						}
-					}{
-						Level3: struct {
-							Value string
-							Num   int
-						}{Value: "deep", Num: 100},
-					},
-				},
-			},
-			getValue: new(TestStructWithDeepNesting),
-		},
-		{
-			name: "StructWithDeeplyNestedMap",
-			setValue: TestStructWithDeeplyNestedMap{
-				Data: map[string]interface{}{
-					"level1": map[string]interface{}{
-						"level2": map[string]interface{}{
-							"level3": map[string]interface{}{"value": "deep"},
-						},
-					},
-				},
-			},
-			getValue: new(TestStructWithDeeplyNestedMap),
-		},
-		{
-			name:     "LargeByteSlice",
-			setValue: make([]byte, 1024),
-			getValue: new([]byte),
-		},
-		{
-			name:     "MixedByteArrayAndSlice",
-			setValue: struct{ Data [4]byte }{Data: [4]byte{1, 2, 3, 4}},
-			getValue: new(struct{ Data [4]byte }),
-		},
-		{
-			name: "StructWithEmptyMap",
-			setValue: struct {
-				EmptyMap map[string]int
-			}{EmptyMap: map[string]int{}},
-			getValue: new(struct {
-				EmptyMap map[string]int
-			}),
-		},
-		{
-			name: "StructWithNilMap",
-			setValue: struct {
-				NilMap map[string]int
-			}{NilMap: nil},
-			getValue: new(struct {
-				NilMap map[string]int
-			}),
-		},
-		{
-			name: "StructWithEmptySlice",
-			setValue: struct {
-				EmptySlice []string
-			}{EmptySlice: []string{}},
-			getValue: new(struct {
-				EmptySlice []string
-			}),
-		},
-		{
-			name: "StructWithNilSlice",
-			setValue: struct {
-				NilSlice []string
-			}{NilSlice: nil},
-			getValue: new(struct {
-				NilSlice []string
-			}),
-		},
-		{
-			name: "StructWithPointerToEmptyStruct",
-			setValue: struct {
-				Ptr *struct{}
-			}{Ptr: &struct{}{}},
-			getValue: new(struct {
-				Ptr *struct{}
-			}),
-		},
-		{
-			name: "SliceOfStructsWithDefaultValues",
-			setValue: []TestNamedStruct{
-				{Value: "", ID: 0},
-				{Value: "filled", ID: 123},
-			},
-			getValue: new([]TestNamedStruct),
-		},
-		{
-			name: "StructWithInterfaceNil",
-			setValue: struct {
-				Field interface{}
-			}{Field: nil},
-			getValue: new(struct{ Field interface{} }),
-		},
-		{
-			name: "StructWithPointerToSlice",
-			setValue: struct {
-				PtrSlice *[]int
-			}{PtrSlice: &[]int{1, 2, 3}},
-			getValue: new(struct{ PtrSlice *[]int }),
-		},
-		{
-			name: "EmptyStructPointerSlice",
-			setValue: []*struct {
-				Name string
-			}{},
-			getValue: new([]*struct {
-				Name string
-			}),
-		},
-		{
-			name: "NilStructPointerSlice",
-			setValue: []*struct {
-				Name string
-			}(nil),
-			getValue: new([]*struct {
-				Name string
-			}),
-		},
-		{
-			name: "EmptyMapWithNonEmptyValues",
-			setValue: map[string]interface{}{
-				"emptyMap":  map[string]interface{}{},
-				"filledMap": map[string]interface{}{"a": 1.0},
-			},
-			getValue: new(map[string]interface{}),
-		},
-		{
-			name:     "SliceWithNilValues",
-			setValue: []interface{}{nil, "non-nil", nil},
-			getValue: new([]interface{}),
-		},
-		{
-			name: "StructWithDoublePointer",
-			setValue: struct {
-				Ptr **int
-			}{
-				Ptr: func() **int {
-					p := &defaultI
-					pp := &p
-					return pp
-				}(),
-			},
-			getValue: new(struct {
-				Ptr **int
-			}),
-		},
-		{
-			name: "StructWithTriplePointerLevels",
-			setValue: struct {
-				PP ***int
-			}{
-				PP: func() ***int {
-					p := &defaultI
-					pp := &p
-					ppp := &pp
-					return ppp
-				}(),
-			},
-			getValue: new(struct {
-				PP ***int
-			}),
-		},
-		{
-			name: "StructWithNestedPointerSlice",
-			setValue: struct {
-				PtrSlice *[]*int
-			}{
-				PtrSlice: &[]*int{new(int), nil},
-			},
-			getValue: new(struct {
-				PtrSlice *[]*int
-			}),
-		},
-		{
-			name: "MixedTypeMapWithNilValues",
-			setValue: map[string]interface{}{
-				"string": "hello",
-				"float":  3.14,
-				"bool":   true,
-				"slice":  []interface{}{"a", "b"},
-				"map":    map[string]interface{}{"a": 1.0, "b": 2.0},
-				"nil":    nil,
-			},
-			getValue: new(map[string]interface{}),
-		},
-		{
-			name: "NestedMixedMap",
-			setValue: map[string]interface{}{
-				"outer": map[string]interface{}{
-					"innerString": "value",
-					"innerMap":    map[string]interface{}{"key": 123.0},
-					"innerNil":    nil,
-				},
-			},
-			getValue: new(map[string]interface{}),
-		},
-		{
-			name: "StructWithRawMessage",
-			setValue: struct {
-				Raw json.RawMessage
-			}{
-				Raw: json.RawMessage(`{"key":"value"}`),
-			},
-			getValue: new(struct {
-				Raw json.RawMessage
-			}),
-		},
 	}
 
 	for _, tc := range testCases {
@@ -1431,17 +698,6 @@ func TestSetError(t *testing.T) {
 		{
 			name:     "NilValue",
 			setValue: nil,
-		},
-		{
-			name: "StructWithFunc",
-			setValue: struct {
-				FuncField func() int
-				Value     int
-			}{FuncField: func() int { return 42 }, Value: 100},
-		},
-		{
-			name:     "NilPointerToEmptySlice",
-			setValue: (*[]int)(nil),
 		},
 	}
 
@@ -1720,45 +976,24 @@ func TestEncodingSize(t *testing.T) {
 			expectedFileSizeTwo: 113,
 		},
 		{
-			name: "CustomStructEmptyField",
-			value: struct {
-				Name     string
-				EmptyStr string
-			}{Name: "Test"},
-			expectedStrSize:     15,
-			expectedFileSizeOne: 62,
-			expectedFileSizeTwo: 149,
-		},
-		{
 			name: "NamedStruct",
 			value: TestNamedStruct{
 				Value: "foo",
 				ID:    123,
 				Map:   map[string]TestNamedStruct{"bar": {Value: "bar", ID: 987, Bool: true}},
 			},
-			expectedStrSize:     135,
-			expectedFileSizeOne: 193,
-			expectedFileSizeTwo: 362,
-		},
-		{
-			name: "PointerStruct",
-			value: TestPointerStruct{
-				S: &defaultStr,
-				I: &defaultI,
-				T: &defaultT,
-			},
-			expectedStrSize:     41,
-			expectedFileSizeOne: 85,
-			expectedFileSizeTwo: 167,
+			expectedStrSize:     205,
+			expectedFileSizeOne: 275,
+			expectedFileSizeTwo: 484,
 		},
 		{
 			name: "CustomJsonStructEmpty",
 			value: TestCustomJsonStruct{
 				Value: "foo",
 			},
-			expectedStrSize:     11,
-			expectedFileSizeOne: 57,
-			expectedFileSizeTwo: 135,
+			expectedStrSize:     19,
+			expectedFileSizeOne: 69,
+			expectedFileSizeTwo: 148,
 		},
 		{
 			name:                "Map",
@@ -1801,9 +1036,9 @@ func TestEncodingSize(t *testing.T) {
 				{Value: "foo", ID: 123},
 				{Value: "bar", ID: 456},
 			},
-			expectedStrSize:     111,
-			expectedFileSizeOne: 163,
-			expectedFileSizeTwo: 320,
+			expectedStrSize:     205,
+			expectedFileSizeOne: 273,
+			expectedFileSizeTwo: 540,
 		},
 	}
 
