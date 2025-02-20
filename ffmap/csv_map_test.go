@@ -51,6 +51,11 @@ type TestNamedStruct struct {
 	IntSlice  []int
 }
 
+type TestAnyStruct struct {
+	Value string
+	Any   any
+}
+
 type TestPointerStruct struct {
 	T *time.Time
 	I *int
@@ -305,6 +310,32 @@ func TestOpenAndCommit(t *testing.T) {
 
 		for key, expectedValue := range values {
 			var actualValue TestStructWithDeepNesting
+			found, err := mNew.Get(key, &actualValue)
+			require.NoError(t, err)
+			assert.True(t, found)
+			assert.Equal(t, expectedValue, actualValue)
+		}
+	})
+	t.Run("SaveAndLoadAnyStructMixedTypes", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		values := map[string]TestAnyStruct{
+			"float64": {Value: "float64", Any: 1.1},
+			"str":     {Value: "str", Any: "str"},
+			"nil":     {Value: "nil", Any: nil},
+		}
+
+		for k, v := range values {
+			require.NoError(t, m.Set(k, v))
+		}
+		require.NoError(t, m.Commit())
+
+		mNew, err := OpenCSV(tmpFile)
+		require.NoError(t, err)
+
+		for key, expectedValue := range values {
+			var actualValue TestAnyStruct
 			found, err := mNew.Get(key, &actualValue)
 			require.NoError(t, err)
 			assert.True(t, found)
@@ -2057,6 +2088,51 @@ func TestEncodingSize(t *testing.T) {
 			verifyFileSize(t, tmpFile, tc.expectedFileSizeTwo)
 		})
 	}
+
+	// extra tests
+	t.Run("MixedFieldsSize", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		values := map[string]TestNamedStruct{
+			"key1":  {Value: "value", ID: 1},
+			"str":   {Value: "str"},
+			"int":   {ID: 100},
+			"bool":  {Bool: true},
+			"map":   {Map: map[string]TestNamedStruct{"foo": {Value: "bar", ID: 123, Bool: true}, "nestedEmpty": {}}},
+			"empty": {},
+			"full": {
+				Value: "foo",
+				ID:    123,
+				Bool:  true,
+				Map:   map[string]TestNamedStruct{"bar": {Value: "bar", ID: 987, Bool: true}},
+			},
+		}
+
+		for k, v := range values {
+			require.NoError(t, m.Set(k, v))
+		}
+
+		require.NoError(t, m.Commit())
+		verifyFileSize(t, tmpFile, 670)
+	})
+	t.Run("MixedFieldTypes", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		values := map[string]TestAnyStruct{
+			"int": {Value: "int", Any: 1},
+			"str": {Value: "str", Any: "str"},
+			"nil": {Value: "nil", Any: nil},
+		}
+
+		for k, v := range values {
+			require.NoError(t, m.Set(k, v))
+		}
+
+		require.NoError(t, m.Commit())
+		verifyFileSize(t, tmpFile, 114)
+	})
 }
 
 func verifyFileSize(t *testing.T, fileStr string, expectedSize int64) {

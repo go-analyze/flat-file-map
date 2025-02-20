@@ -394,6 +394,26 @@ func isZeroValue(v reflect.Value) bool {
 	}
 }
 
+// zeroValue returns the default or zero value for the provided reflected field. This is the counterpart to isZeroValue
+// used for encoding needed zero values that were omitted.
+func zeroValue(t reflect.Kind) interface{} {
+	// not all types are possible after json.Unmarshal, but specified for completeness
+	switch t {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return uint64(0)
+	case reflect.Float32, reflect.Float64:
+		return 0.0
+	case reflect.Bool:
+		return false
+	case reflect.String:
+		return ""
+	default:
+		return nil
+	}
+}
+
 func decodeValue(dataType int, encodedValue string, value interface{}) error {
 	v := reflect.ValueOf(value).Elem()
 	switch dataType {
@@ -603,6 +623,7 @@ func (kv *KeyValueCSV) Commit() error {
 	return kv.commitTo(file)
 }
 
+// commitTo writes all current key-value pairs to the provided writer, sorted by data type and then key.
 func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 	// sort keys so output is in a consistent order
 	keys := mapKeys(kv.data)
@@ -626,14 +647,16 @@ func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 	}
 	var lastStructName string
 	var structFieldNames []string
+	var fieldNameTypes map[string]reflect.Kind
 	for i, key := range keys {
 		dataVal := kv.data[key]
 		if dataVal.dataType == dataStructJson {
 			if dataVal.structId != lastStructName && i+1 < len(keys) && kv.data[keys[i+1]].structId == dataVal.structId {
 				// we have at least one more value of this type, so encode a header line
 				// first we need to inspect all fields of the struct, we need to check all instances
-				// because omitempty may have omitted default fields
+				// because may have omitted default fields in specific instances
 				var allStructFieldNames [][]string
+				fieldNameTypes = make(map[string]reflect.Kind)
 				for i2 := i; i2 < len(keys); i2++ {
 					val2 := kv.data[keys[i2]]
 					if dataVal.structId != val2.structId {
@@ -645,6 +668,19 @@ func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 						return err
 					}
 					allStructFieldNames = append(allStructFieldNames, mapKeys(structValue))
+					// track the field type, needed to fill in default values for structs which had default values omitted
+					for name := range structValue {
+						fieldType := reflect.ValueOf(structValue[name]).Kind()
+						if current, ok := fieldNameTypes[name]; ok {
+							if zeroValue(current) != zeroValue(fieldType) {
+								// on type mismatch we set to pointer to encode a `null` for empty fields
+								// This is an interface or any field which accepts multiple types
+								fieldNameTypes[name] = reflect.Ptr
+							}
+						} else {
+							fieldNameTypes[name] = fieldType
+						}
+					}
 				}
 				structFieldNames = sliceUniqueUnion(allStructFieldNames)
 				slices.Sort(structFieldNames) // sort for consistency
@@ -662,7 +698,11 @@ func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 				}
 				values := make([]interface{}, len(structFieldNames))
 				for valueIdx, fieldName := range structFieldNames {
-					values[valueIdx] = structValue[fieldName]
+					if val, exists := structValue[fieldName]; exists {
+						values[valueIdx] = val
+					} else { // Substitute with default based on field's type
+						values[valueIdx] = zeroValue(fieldNameTypes[fieldName])
+					}
 				}
 
 				if valueJsonBytes, err := json.Marshal(values); err != nil {
