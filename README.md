@@ -16,7 +16,9 @@ There are several reasons you may want to persist data in a simple flat file:
 The `flat-file-map` module is focused on providing a specialized file format to be used in niche workflows. Consequently, it makes several trade-offs:
 * All data must fit into memory.
 * Concurrent access of the file (for example by multiple processes) is not supported.
-* File loading and writing may be slower compared to other database solutions.
+* Value storing or retrival, as well as file loading and writing is slower compared to other database solutions.
+
+TL:DR; this project makes the file size and format the priority in order to ensure it can be safely stored in systems which are well adapted for flat text based files.
 
 ## Basic Usage
 
@@ -26,8 +28,6 @@ Here's a example of how to use the `flat-file-map`:
 package main
 
 import (
-    "fmt"
-    "log"
     "github.com/go-analyze/flat-file-map/ffmap"
 )
 
