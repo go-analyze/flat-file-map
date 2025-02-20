@@ -176,7 +176,7 @@ func TestOpenAndCommit(t *testing.T) {
 		}
 		require.NoError(t, mOrig.Commit())
 
-		mNew, err := OpenCSV(tmpFile)
+		mNew, err := OpenReadOnlyCSV(tmpFile)
 		require.NoError(t, err)
 
 		for key, expectedValue := range values {
@@ -201,7 +201,7 @@ func TestOpenAndCommit(t *testing.T) {
 		}
 		require.NoError(t, mOrig.Commit())
 
-		mNew, err := OpenCSV(tmpFile)
+		mNew, err := OpenReadOnlyCSV(tmpFile)
 		require.NoError(t, err)
 
 		for key, expectedValue := range values {
@@ -230,7 +230,7 @@ func TestOpenAndCommit(t *testing.T) {
 		}
 		require.NoError(t, mOrig.Commit())
 
-		mNew, err := OpenCSV(tmpFile)
+		mNew, err := OpenReadOnlyCSV(tmpFile)
 		require.NoError(t, err)
 
 		for key, expectedValue := range values {
@@ -259,7 +259,7 @@ func TestOpenAndCommit(t *testing.T) {
 		}
 		require.NoError(t, mOrig.Commit())
 
-		mNew, err := OpenCSV(tmpFile)
+		mNew, err := OpenReadOnlyCSV(tmpFile)
 		require.NoError(t, err)
 
 		for key, expectedValue := range values {
@@ -305,7 +305,7 @@ func TestOpenAndCommit(t *testing.T) {
 		}
 		require.NoError(t, mOrig.Commit())
 
-		mNew, err := OpenCSV(tmpFile)
+		mNew, err := OpenReadOnlyCSV(tmpFile)
 		require.NoError(t, err)
 
 		for key, expectedValue := range values {
@@ -326,12 +326,10 @@ func TestOpenAndCommit(t *testing.T) {
 			"nil":     {Value: "nil", Any: nil},
 		}
 
-		for k, v := range values {
-			require.NoError(t, m.Set(k, v))
-		}
+		require.NoError(t, SetAll(m, values))
 		require.NoError(t, m.Commit())
 
-		mNew, err := OpenCSV(tmpFile)
+		mNew, err := OpenReadOnlyCSV(tmpFile)
 		require.NoError(t, err)
 
 		for key, expectedValue := range values {
@@ -360,7 +358,7 @@ func TestOpenAndCommit(t *testing.T) {
 		}
 		require.NoError(t, mOrig.Commit())
 
-		mNew, err := OpenCSV(tmpFile)
+		mNew, err := OpenReadOnlyCSV(tmpFile)
 		require.NoError(t, err)
 
 		for _, expectedValue := range values {
@@ -391,7 +389,7 @@ func TestOpenAndCommit(t *testing.T) {
 		}
 		require.NoError(t, mOrig.Commit())
 
-		mNew, err := OpenCSV(tmpFile)
+		mNew, err := OpenReadOnlyCSV(tmpFile)
 		require.NoError(t, err)
 
 		for key, expectedValue := range values {
@@ -496,12 +494,10 @@ func TestOpenAndCommit(t *testing.T) {
 			"mapStringString": map[string]string{"key1": "value1", "key2": "value2"},
 		}
 
-		for key, value := range testData {
-			require.NoError(t, mOrig.Set(key, value))
-		}
+		require.NoError(t, SetAll(mOrig, testData))
 		require.NoError(t, mOrig.Commit())
 
-		mNew, err := OpenCSV(tmpFile)
+		mNew, err := OpenReadOnlyCSV(tmpFile)
 		require.NoError(t, err)
 
 		for key, expectedValue := range testData {
@@ -1635,6 +1631,134 @@ func TestSetAndGet(t *testing.T) {
 	})
 }
 
+func TestSetAll(t *testing.T) {
+	t.Run("nil_kv", func(t *testing.T) {
+		require.Error(t, SetAll(nil, make(map[string]string)))
+	})
+	t.Run("nil_map", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, m := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		require.NoError(t, SetAll[string](m, nil))
+		require.Equal(t, 0, m.Size())
+	})
+	t.Run("basic", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, m := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		values := map[string]string{
+			"a": "1",
+			"b": "2",
+			"c": "3",
+			"d": "4",
+		}
+
+		require.NoError(t, SetAll[string](m, values))
+		require.Equal(t, 4, m.Size())
+		for k, v1 := range values {
+			var v2 string
+			ok, err := m.Get(k, &v2)
+			require.NoError(t, err)
+			assert.True(t, ok)
+			assert.Equal(t, v1, v2)
+		}
+	})
+	t.Run("struct", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, m := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		values := map[string]TestNamedStruct{
+			"a": {
+				Value: "1",
+				ID:    1,
+			},
+			"b": {
+				Value: "2",
+				ID:    2,
+			},
+			"c": {
+				Value: "3",
+				ID:    3,
+			},
+			"d": {
+				Value: "4",
+				ID:    4,
+			},
+		}
+
+		require.NoError(t, SetAll(m, values))
+		require.Equal(t, 4, m.Size())
+		for k, v1 := range values {
+			var v2 TestNamedStruct
+			ok, err := m.Get(k, &v2)
+			require.NoError(t, err)
+			assert.True(t, ok)
+			assert.Equal(t, v1, v2)
+		}
+	})
+	t.Run("ptr", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, m := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		values := map[string]*TestNamedStruct{
+			"a": {
+				Value: "1",
+				ID:    1,
+			},
+			"b": {
+				Value: "2",
+				ID:    2,
+			},
+			"c": {
+				Value: "3",
+				ID:    3,
+			},
+			"d": {
+				Value: "4",
+				ID:    4,
+			},
+		}
+
+		require.NoError(t, SetAll(m, values))
+		require.Equal(t, 4, m.Size())
+		for k, v1 := range values {
+			v2 := &TestNamedStruct{}
+			ok, err := m.Get(k, v2)
+			require.NoError(t, err)
+			assert.True(t, ok)
+			assert.Equal(t, v1, v2)
+		}
+	})
+	t.Run("middle_error", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, m := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		values := map[string]*TestNamedStruct{
+			"a": {
+				Value: "1",
+				ID:    1,
+			},
+			"b": nil,
+			"c": {
+				Value: "3",
+				ID:    3,
+			},
+			"d": {
+				Value: "4",
+				ID:    4,
+			},
+		}
+
+		require.Error(t, SetAll(m, values))
+		require.Equal(t, 3, m.Size())
+	})
+}
+
 func TestSetError(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
@@ -1786,9 +1910,7 @@ func TestGetInvalidType(t *testing.T) {
 		"mapStringString":  map[string]string{"key1": "value1", "key2": "value2"},
 	}
 
-	for key, value := range testData {
-		require.NoError(t, m.Set(key, value))
-	}
+	require.NoError(t, SetAll(m, testData))
 
 	for key := range testData {
 		for mismatchKey, mismatchValue := range testData {
@@ -2109,9 +2231,7 @@ func TestEncodingSize(t *testing.T) {
 			},
 		}
 
-		for k, v := range values {
-			require.NoError(t, m.Set(k, v))
-		}
+		require.NoError(t, SetAll(m, values))
 
 		require.NoError(t, m.Commit())
 		verifyFileSize(t, tmpFile, 670)
@@ -2126,9 +2246,7 @@ func TestEncodingSize(t *testing.T) {
 			"nil": {Value: "nil", Any: nil},
 		}
 
-		for k, v := range values {
-			require.NoError(t, m.Set(k, v))
-		}
+		require.NoError(t, SetAll(m, values))
 
 		require.NoError(t, m.Commit())
 		verifyFileSize(t, tmpFile, 114)

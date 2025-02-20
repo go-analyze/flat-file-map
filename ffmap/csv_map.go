@@ -199,7 +199,7 @@ func encodeValue(value interface{}) (*dataItem, error) {
 				combinedFieldName.WriteString(val.Type().Field(i).Name)
 			}
 			structId = strings.ReplaceAll(val.Type().String(), " ", "")
-			if combinedFieldName.Len() > 0 {
+			if combinedFieldName.Len() != 0 {
 				crc32q := crc32.MakeTable(crc32.Castagnoli)
 				structId += "-" + strconv.FormatUint(uint64(crc32.Checksum(combinedFieldName.Bytes(), crc32q)), 36)
 			}
@@ -555,6 +555,37 @@ func (kv *KeyValueCSV) Set(key string, value interface{}) error {
 	kv.modCount++
 	kv.data[key] = *item
 	return nil
+}
+
+// SetAll will iterate the provided map and set all the key values into the provided KeyValueCSV. In the case of error,
+// remaining values will still be set, with the returned error being a joined error (if multiple errors occurred).
+func SetAll[T any](kv *KeyValueCSV, m map[string]T) error {
+	if kv == nil {
+		return errors.New("nil KeyValueCSV")
+	}
+
+	// encode before getting lock
+	items := make(map[string]*dataItem, len(m))
+	var errs []error
+	for k, v := range m {
+		if item, err := encodeValue(v); err == nil {
+			items[k] = item
+		} else {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(items) != 0 {
+		kv.rwLock.Lock()
+		defer kv.rwLock.Unlock()
+
+		kv.modCount++
+		for k := range items {
+			kv.data[k] = *items[k]
+		}
+	}
+
+	return errors.Join(errs...)
 }
 
 func (kv *KeyValueCSV) Delete(key string) {

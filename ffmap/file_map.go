@@ -1,5 +1,9 @@
 package ffmap
 
+import (
+	"errors"
+)
+
 // OpenCSV will create or read an existing CSV map file.
 func OpenCSV(filename string) (*KeyValueCSV, error) {
 	db := &KeyValueCSV{
@@ -81,6 +85,22 @@ func (tfm *TypedFFMap[T]) KeySet() []string {
 // Set will set the provided value into the map.  If a value already exists, it will be replaced with the new value.
 func (tfm *TypedFFMap[T]) Set(key string, value T) error {
 	return tfm.ffm.Set(key, value)
+}
+
+// SetAll will iterate the provided map and set all the key values into the TypedFFMap. In the case of error, remaining
+// values will still be set, with the returned error being a joined error (if multiple errors occurred).
+func (tfm *TypedFFMap[T]) SetAll(m map[string]T) error {
+	if kv, ok := tfm.ffm.(*KeyValueCSV); ok {
+		return SetAll(kv, m)
+	} else { // flexible for other interface implementations if one exists
+		var errs []error
+		for k, v := range m {
+			if err := tfm.ffm.Set(k, v); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		return errors.Join(errs...)
+	}
 }
 
 // Delete will remove the key from the map (if present).

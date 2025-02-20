@@ -101,6 +101,25 @@ func TestTypedFFMap(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, value, result)
 	})
+	t.Run("SetAll", func(t *testing.T) {
+		t.Parallel()
+		tfm := NewTypedFFMap[string](newMemoryFFMap())
+
+		values := map[string]string{
+			"a": "1",
+			"b": "2",
+			"c": "3",
+			"d": "4",
+		}
+
+		require.NoError(t, tfm.SetAll(values))
+		require.Equal(t, 4, tfm.Size())
+		for k, v1 := range values {
+			v2, ok := tfm.Get(k)
+			assert.True(t, ok)
+			assert.Equal(t, v1, v2)
+		}
+	})
 	t.Run("ContainsKey", func(t *testing.T) {
 		t.Parallel()
 		tfm := NewTypedFFMap[string](newMemoryFFMap())
