@@ -143,6 +143,10 @@ var (
 	defaultF   = 0.0
 )
 
+var stringReturnFunc = func(str string) string { // used in test cases where the key and value match
+	return str
+}
+
 func TestOpenAndCommit(t *testing.T) {
 	t.Run("OpenEmpty", func(t *testing.T) {
 		t.Parallel()
@@ -528,9 +532,8 @@ func TestOpenAndCommit(t *testing.T) {
 		tmpFile, m := makeTestMap(t)
 		defer os.Remove(tmpFile)
 
-		for _, s := range []string{"foo1", "bar1", "foo2", "bar2", "foo3", "bar3", "foo4", "bar4"} {
-			require.NoError(t, m.Set(s, s))
-		}
+		require.NoError(t, SetSliceValues(m,
+			[]string{"foo1", "bar1", "foo2", "bar2", "foo3", "bar3", "foo4", "bar4"}, stringReturnFunc))
 		require.NoError(t, m.Commit())
 		require.NoError(t, os.Remove(tmpFile)) // remove file as hack to verify commit does not apply
 
@@ -1703,16 +1706,16 @@ func TestSetAndGet(t *testing.T) {
 	})
 }
 
-func TestSetAll(t *testing.T) {
+func TestSetMapValues(t *testing.T) {
 	t.Run("nil_kv", func(t *testing.T) {
-		require.Error(t, SetAll(nil, make(map[string]string)))
+		require.Error(t, SetMapValues(nil, make(map[string]string)))
 	})
 	t.Run("nil_map", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, m := makeTestMap(t)
 		defer os.Remove(tmpFile)
 
-		require.NoError(t, SetAll[string](m, nil))
+		require.NoError(t, SetMapValues[string](m, nil))
 		require.Equal(t, 0, m.Size())
 	})
 	t.Run("basic", func(t *testing.T) {
@@ -1727,7 +1730,7 @@ func TestSetAll(t *testing.T) {
 			"d": "4",
 		}
 
-		require.NoError(t, SetAll[string](m, values))
+		require.NoError(t, SetMapValues[string](m, values))
 		require.Equal(t, 4, m.Size())
 		for k, v1 := range values {
 			var v2 string
@@ -1761,7 +1764,7 @@ func TestSetAll(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, SetAll(m, values))
+		require.NoError(t, SetMapValues(m, values))
 		require.Equal(t, 4, m.Size())
 		for k, v1 := range values {
 			var v2 TestNamedStruct
@@ -1795,7 +1798,7 @@ func TestSetAll(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, SetAll(m, values))
+		require.NoError(t, SetMapValues(m, values))
 		require.Equal(t, 4, m.Size())
 		for k, v1 := range values {
 			v2 := &TestNamedStruct{}
@@ -1826,8 +1829,158 @@ func TestSetAll(t *testing.T) {
 			},
 		}
 
-		require.Error(t, SetAll(m, values))
+		require.Error(t, SetMapValues(m, values))
 		require.Equal(t, 3, m.Size())
+	})
+}
+
+func TestSetSliceValues(t *testing.T) {
+	t.Run("nil_kv", func(t *testing.T) {
+		require.Error(t, SetSliceValues(nil, make([]int, 0), strconv.Itoa))
+	})
+	t.Run("nil_slice", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, m := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		require.NoError(t, SetSliceValues(m, make([]int, 0), strconv.Itoa))
+		require.Equal(t, 0, m.Size())
+	})
+	t.Run("nil_func", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, m := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		require.Error(t, SetSliceValues(m, make([]int, 1), nil))
+		require.Equal(t, 0, m.Size())
+	})
+	t.Run("basic", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, m := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		values := []int{0, 1, 2, 3, 4}
+
+		require.NoError(t, SetSliceValues(m, values, strconv.Itoa))
+		require.Equal(t, 5, m.Size())
+		for _, v1 := range values {
+			var v2 int
+			ok, err := m.Get(strconv.Itoa(v1), &v2)
+			require.NoError(t, err)
+			assert.True(t, ok)
+			assert.Equal(t, v1, v2)
+		}
+	})
+	t.Run("struct", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, m := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		values := []TestNamedStruct{
+			{
+				Value: "1",
+				ID:    1,
+			},
+			{
+				Value: "2",
+				ID:    2,
+			},
+			{
+				Value: "3",
+				ID:    3,
+			},
+			{
+				Value: "4",
+				ID:    4,
+			},
+		}
+
+		require.NoError(t, SetSliceValues(m, values, func(value TestNamedStruct) string {
+			return value.Value
+		}))
+		require.Equal(t, 4, m.Size())
+		for _, v1 := range values {
+			var v2 TestNamedStruct
+			ok, err := m.Get(v1.Value, &v2)
+			require.NoError(t, err)
+			assert.True(t, ok)
+			assert.Equal(t, v1, v2)
+		}
+	})
+	t.Run("ptr", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, m := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		values := []*TestNamedStruct{
+			{
+				Value: "1",
+				ID:    1,
+			},
+			{
+				Value: "2",
+				ID:    2,
+			},
+			{
+				Value: "3",
+				ID:    3,
+			},
+			{
+				Value: "4",
+				ID:    4,
+			},
+		}
+
+		require.NoError(t, SetSliceValues(m, values, func(value *TestNamedStruct) string {
+			return value.Value
+		}))
+		require.Equal(t, 4, m.Size())
+		for _, v1 := range values {
+			v2 := &TestNamedStruct{}
+			ok, err := m.Get(v1.Value, v2)
+			require.NoError(t, err)
+			assert.True(t, ok)
+			assert.Equal(t, v1, v2)
+		}
+	})
+	t.Run("middle_error", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, m := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		values := []*TestNamedStruct{
+			{
+				Value: "1",
+				ID:    1,
+			},
+			nil,
+			{
+				Value: "3",
+				ID:    3,
+			},
+			{
+				Value: "4",
+				ID:    4,
+			},
+		}
+
+		require.Error(t, SetSliceValues(m, values, func(value *TestNamedStruct) string {
+			if value == nil {
+				return ""
+			}
+			return value.Value
+		}))
+		require.Equal(t, 3, m.Size())
+		for _, v1 := range values {
+			if v1 == nil {
+				continue
+			}
+			v2 := &TestNamedStruct{}
+			ok, err := m.Get(v1.Value, v2)
+			require.NoError(t, err)
+			assert.True(t, ok)
+			assert.Equal(t, v1, v2)
+		}
 	})
 }
 
@@ -2378,9 +2531,7 @@ func TestKeySet(t *testing.T) {
 	defer os.Remove(tmpFile)
 
 	keys := []string{"foo1", "bar1", "foo2", "bar2", "foo3", "bar3", "foo4", "bar4"}
-	for _, k := range keys {
-		require.NoError(t, m.Set(k, k))
-	}
+	require.NoError(t, SetSliceValues(m, keys, stringReturnFunc))
 
 	keySet := m.KeySet()
 	assert.Len(t, keySet, len(keys))

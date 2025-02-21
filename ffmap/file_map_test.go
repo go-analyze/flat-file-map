@@ -3,6 +3,7 @@ package ffmap
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -101,7 +102,7 @@ func TestTypedFFMap(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, value, result)
 	})
-	t.Run("SetAll", func(t *testing.T) {
+	t.Run("SetMapValues", func(t *testing.T) {
 		t.Parallel()
 		tfm := NewTypedFFMap[string](newMemoryFFMap())
 
@@ -112,10 +113,24 @@ func TestTypedFFMap(t *testing.T) {
 			"d": "4",
 		}
 
-		require.NoError(t, tfm.SetAll(values))
+		require.NoError(t, tfm.SetMapValues(values))
 		require.Equal(t, 4, tfm.Size())
 		for k, v1 := range values {
 			v2, ok := tfm.Get(k)
+			assert.True(t, ok)
+			assert.Equal(t, v1, v2)
+		}
+	})
+	t.Run("SetSliceValues", func(t *testing.T) {
+		t.Parallel()
+		tfm := NewTypedFFMap[int](newMemoryFFMap())
+
+		values := []int{0, 1, 2, 3, 4}
+
+		require.NoError(t, tfm.SetSliceValues(values, strconv.Itoa))
+		require.Equal(t, 5, tfm.Size())
+		for k, v1 := range values {
+			v2, ok := tfm.Get(strconv.Itoa(k))
 			assert.True(t, ok)
 			assert.Equal(t, v1, v2)
 		}

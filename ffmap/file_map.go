@@ -48,6 +48,55 @@ type MutableFFMap interface {
 	Commit() error
 }
 
+// Deprecated: SetAll is deprecated, use SetMapValues.
+func SetAll[T any](kv MutableFFMap, m map[string]T) error {
+	return SetMapValues(kv, m)
+}
+
+// SetMapValues will iterate the provided map and set all the key values into the provided MutableFFMap.
+// In the case of error, remaining values will still be set, with the returned error being a joined error
+// (if multiple errors occurred).
+func SetMapValues[T any](kv MutableFFMap, m map[string]T) error {
+	if kv == nil {
+		return errors.New("nil MutableFFMap")
+	}
+
+	if csvKV, ok := kv.(*KeyValueCSV); ok {
+		return csvSetMapValues(csvKV, m)
+	} else { // flexible for other interface implementations if one exists
+		var errs []error
+		for k, v := range m {
+			if err := kv.Set(k, v); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		return errors.Join(errs...)
+	}
+}
+
+// SetSliceValues will iterate the provided slice, and using the provided function to derive the key for each slice,
+// set the values into the provided MutableFFMap. In the case of error, remaining values will still be set,
+// with the returned error being a joined error (if multiple errors occurred).
+func SetSliceValues[T any](kv MutableFFMap, s []T, keyProvider func(value T) string) error {
+	if kv == nil {
+		return errors.New("nil MutableFFMap")
+	} else if keyProvider == nil {
+		return errors.New("nil keyProvider function")
+	}
+
+	if csvKV, ok := kv.(*KeyValueCSV); ok {
+		return csvSetSliceValues(csvKV, s, keyProvider)
+	} else { // flexible for other interface implementations if one exists
+		var errs []error
+		for _, v := range s {
+			if err := kv.Set(keyProvider(v), v); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		return errors.Join(errs...)
+	}
+}
+
 // TypedFFMap provides a similar API to the interface MutableFFMap, however it only functions on a single value type.
 type TypedFFMap[T any] struct {
 	ffm MutableFFMap
@@ -87,20 +136,22 @@ func (tfm *TypedFFMap[T]) Set(key string, value T) error {
 	return tfm.ffm.Set(key, value)
 }
 
-// SetAll will iterate the provided map and set all the key values into the TypedFFMap. In the case of error, remaining
-// values will still be set, with the returned error being a joined error (if multiple errors occurred).
+// Deprecated: SetAll is deprecated, use SetMapValues.
 func (tfm *TypedFFMap[T]) SetAll(m map[string]T) error {
-	if kv, ok := tfm.ffm.(*KeyValueCSV); ok {
-		return SetAll(kv, m)
-	} else { // flexible for other interface implementations if one exists
-		var errs []error
-		for k, v := range m {
-			if err := tfm.ffm.Set(k, v); err != nil {
-				errs = append(errs, err)
-			}
-		}
-		return errors.Join(errs...)
-	}
+	return tfm.SetMapValues(m)
+}
+
+// SetMapValues will iterate the provided map and set all the key values into the TypedFFMap. In the case of error,
+// remaining values will still be set, with the returned error being a joined error (if multiple errors occurred).
+func (tfm *TypedFFMap[T]) SetMapValues(m map[string]T) error {
+	return SetMapValues(tfm.ffm, m)
+}
+
+// SetSliceValues will iterate the provided slice, and using the provided function to derive the key for each slice,
+// set the values into the TypedFFMap. In the case of error, remaining values will still be set, with the returned
+// error being a joined error (if multiple errors occurred).
+func (tfm *TypedFFMap[T]) SetSliceValues(s []T, keyProvider func(value T) string) error {
+	return SetSliceValues(tfm.ffm, s, keyProvider)
 }
 
 // Delete will remove the key from the map (if present).

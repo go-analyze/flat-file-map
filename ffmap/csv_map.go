@@ -561,13 +561,9 @@ func (kv *KeyValueCSV) Set(key string, value interface{}) error {
 	return nil
 }
 
-// SetAll will iterate the provided map and set all the key values into the provided KeyValueCSV. In the case of error,
+// csvSetMapValues will iterate the provided map and set all the key values into the provided KeyValueCSV. In the case of error,
 // remaining values will still be set, with the returned error being a joined error (if multiple errors occurred).
-func SetAll[T any](kv *KeyValueCSV, m map[string]T) error {
-	if kv == nil {
-		return errors.New("nil KeyValueCSV")
-	}
-
+func csvSetMapValues[T any](kv *KeyValueCSV, m map[string]T) error {
 	// encode before getting lock
 	items := make(map[string]*dataItem, len(m))
 	var errs []error
@@ -579,6 +575,30 @@ func SetAll[T any](kv *KeyValueCSV, m map[string]T) error {
 		}
 	}
 
+	kv.setItemMap(items)
+	return errors.Join(errs...)
+}
+
+// csvSetSliceValues will iterate the provided slice, and using the provided function to derive the key for each slice,
+// set the values into the provided KeyValueCSV. In the case of error, remaining values will still be set,
+// with the returned error being a joined error (if multiple errors occurred).
+func csvSetSliceValues[T any](kv *KeyValueCSV, s []T, keyProvider func(value T) string) error {
+	// encode before getting lock
+	items := make(map[string]*dataItem, len(s))
+	var errs []error
+	for _, v := range s {
+		if item, err := encodeValue(v); err == nil {
+			items[keyProvider(v)] = item
+		} else {
+			errs = append(errs, err)
+		}
+	}
+
+	kv.setItemMap(items)
+	return errors.Join(errs...)
+}
+
+func (kv *KeyValueCSV) setItemMap(items map[string]*dataItem) {
 	if len(items) != 0 {
 		kv.rwLock.Lock()
 		defer kv.rwLock.Unlock()
@@ -588,8 +608,6 @@ func SetAll[T any](kv *KeyValueCSV, m map[string]T) error {
 			kv.data[k] = *items[k]
 		}
 	}
-
-	return errors.Join(errs...)
 }
 
 func (kv *KeyValueCSV) Delete(key string) {
