@@ -537,6 +537,52 @@ func TestOpenAndCommit(t *testing.T) {
 		require.NoError(t, m.Commit()) // no-op commit
 		assert.NoFileExists(t, tmpFile)
 	})
+	t.Run("SaveAndLoadAllZeroStruct", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, mOrig := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		value := TestNamedStruct{}
+		require.NoError(t, mOrig.Set("allzero1", value))
+		require.NoError(t, mOrig.Set("allzero2", value))
+		require.NoError(t, mOrig.Commit())
+
+		mNew, err := OpenReadOnlyCSV(tmpFile)
+		require.NoError(t, err)
+
+		var actualValue TestNamedStruct
+		found, err := mNew.Get("allzero1", &actualValue)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, value, actualValue)
+	})
+	t.Run("SaveAndLoadCustomMarshaler", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, mOrig := makeTestMap(t)
+		defer os.Remove(tmpFile)
+
+		values := map[string]TestStructWithEmbeddedCustomMarshaler{
+			"key1": {Embedded: TestCustomMarshaler{Value: "value1", Encoded: json.RawMessage(`"encoded1"`)}, Extra: "extra1"},
+		}
+
+		for key, value := range values {
+			require.NoError(t, mOrig.Set(key, value))
+		}
+		require.NoError(t, mOrig.Commit())
+
+		mNew, err := OpenReadOnlyCSV(tmpFile)
+		require.NoError(t, err)
+
+		for key, expectedValue := range values {
+			var actualValue TestStructWithEmbeddedCustomMarshaler
+			found, err := mNew.Get(key, &actualValue)
+			require.NoError(t, err)
+			assert.True(t, found)
+			assert.Equal(t, expectedValue.Embedded.Value, actualValue.Embedded.Value)
+			assert.Equal(t, string(expectedValue.Embedded.Encoded), string(actualValue.Embedded.Encoded))
+			assert.Equal(t, expectedValue.Extra, actualValue.Extra)
+		}
+	})
 }
 
 func TestSize(t *testing.T) {
@@ -893,6 +939,22 @@ func TestSetAndGet(t *testing.T) {
 			getValue: new(TestNamedStruct),
 		},
 		{
+			name: "MapValueWithZeroKey",
+			setValue: TestNamedStruct{
+				Value:     "foo",
+				MapIntKey: map[int]string{0: "zero", 1: "one"},
+			},
+			getValue: new(TestNamedStruct),
+		},
+		{
+			name: "MapValueWithZeroValue",
+			setValue: TestNamedStruct{
+				Value:     "foo",
+				MapIntKey: map[int]string{1: "", 2: ""},
+			},
+			getValue: new(TestNamedStruct),
+		},
+		{
 			name:     "NamedStructEmpty",
 			setValue: TestNamedStruct{},
 			getValue: new(TestNamedStruct),
@@ -936,6 +998,16 @@ func TestSetAndGet(t *testing.T) {
 		{
 			name:     "Map",
 			setValue: map[string]string{"foo1": "bar1", "foo2": "bar2"},
+			getValue: new(map[string]string),
+		},
+		{
+			name:     "MapWithZeroKey",
+			setValue: map[string]string{"": "foo"},
+			getValue: new(map[string]string),
+		},
+		{
+			name:     "MapWithZeroValue",
+			setValue: map[string]string{"foo": ""},
 			getValue: new(map[string]string),
 		},
 		{
@@ -2148,6 +2220,20 @@ func TestEncodingSize(t *testing.T) {
 			expectedStrSize:     29,
 			expectedFileSizeOne: 62,
 			expectedFileSizeTwo: 118,
+		},
+		{
+			name:                "MapZeroKey",
+			value:               map[string]string{"": "foo"},
+			expectedStrSize:     10,
+			expectedFileSizeOne: 46,
+			expectedFileSizeTwo: 86,
+		},
+		{
+			name:                "MapZeroValue",
+			value:               map[string]string{"foo": ""},
+			expectedStrSize:     10,
+			expectedFileSizeOne: 48,
+			expectedFileSizeTwo: 90,
 		},
 		{
 			name:                "ByteSlice",

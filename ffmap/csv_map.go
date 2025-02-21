@@ -226,10 +226,7 @@ func stripZeroFields(v reflect.Value) interface{} {
 	// Special-case: for byte slices and arrays, return as-is so that json.Marshal encodes them as base64
 	if (v.Kind() == reflect.Slice || v.Kind() == reflect.Array) && v.Type().Elem().Kind() == reflect.Uint8 {
 		return v.Interface()
-	}
-
-	// If the type implements json.Marshaler, use that.
-	if v.CanInterface() {
+	} else if v.CanInterface() { // If the type implements json.Marshaler, use that
 		if marshaler, ok := v.Interface().(json.Marshaler); ok {
 			if rv := reflect.ValueOf(marshaler); rv.Kind() == reflect.Ptr && rv.IsNil() {
 				// fall through to normal processing
@@ -339,7 +336,14 @@ func stripZeroFields(v reflect.Value) interface{} {
 		out := make(map[string]interface{})
 		for _, key := range v.MapKeys() {
 			// use fmt.Sprint to ensure JSON-compatible keys
-			out[fmt.Sprint(key.Interface())] = stripZeroFields(v.MapIndex(key))
+			mapKey := fmt.Sprint(key.Interface())
+			mapValue := v.MapIndex(key)
+			switch mapValue.Kind() {
+			case reflect.Ptr, reflect.Interface, reflect.Struct, reflect.Map, reflect.Slice, reflect.Array:
+				out[mapKey] = stripZeroFields(mapValue)
+			default:
+				out[mapKey] = mapValue.Interface()
+			}
 		}
 		return out
 	default:
