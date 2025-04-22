@@ -2117,6 +2117,29 @@ func TestGetOverflowError(t *testing.T) {
 	}
 }
 
+func TestGetWithZeroFieldsSet(t *testing.T) {
+	t.Parallel()
+	tmpFile, m := makeTestMap(t)
+	defer os.Remove(tmpFile)
+
+	zeroStruct := TestNamedStruct{}
+	err := m.Set("zero", zeroStruct)
+	require.NoError(t, err)
+
+	valueStruct := &TestNamedStruct{ // pre-filled with values that should be cleared
+		Value: "value",
+		ID:    1,
+		Float: 1.0,
+		Bool:  true,
+		Time:  time.Now(),
+		Bytes: []byte("foo"),
+	}
+	_, err = m.Get("zero", valueStruct)
+	require.NoError(t, err)
+
+	assert.Equal(t, zeroStruct, *valueStruct)
+}
+
 func TestGetInvalidType(t *testing.T) {
 	t.Parallel()
 	tmpFile, m := makeTestMap(t)

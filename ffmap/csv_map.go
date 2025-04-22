@@ -419,21 +419,21 @@ func zeroValue(t reflect.Kind) interface{} {
 }
 
 func decodeValue(dataType int, encodedValue string, value interface{}) error {
-	v := reflect.ValueOf(value).Elem()
+	ve := reflect.ValueOf(value).Elem()
 	switch dataType {
 	case dataString:
-		if v.Kind() != reflect.String {
-			return fmt.Errorf("expected string type but got %v", v.Kind())
+		if ve.Kind() != reflect.String {
+			return fmt.Errorf("expected string type but got %v", ve.Kind())
 		}
 
-		v.SetString(encodedValue)
+		ve.SetString(encodedValue)
 	case dataInt:
 		iVal, err := strconv.ParseInt(encodedValue, 10, 64)
 		if err != nil {
 			return err
 		}
 
-		switch v.Kind() {
+		switch ve.Kind() {
 		case reflect.Int64:
 		case reflect.Int:
 			if iVal < math.MinInt || iVal > math.MaxInt {
@@ -452,17 +452,17 @@ func decodeValue(dataType int, encodedValue string, value interface{}) error {
 				return errors.New("int8 overflow")
 			}
 		default:
-			return fmt.Errorf("expected int type but got %v", v.Kind())
+			return fmt.Errorf("expected int type but got %v", ve.Kind())
 		}
 
-		v.SetInt(iVal)
+		ve.SetInt(iVal)
 	case dataUint:
 		uVal, err := strconv.ParseUint(encodedValue, 10, 64)
 		if err != nil {
 			return err
 		}
 
-		switch v.Kind() {
+		switch ve.Kind() {
 		case reflect.Uint64:
 		case reflect.Uint:
 			if uVal > math.MaxUint {
@@ -481,34 +481,34 @@ func decodeValue(dataType int, encodedValue string, value interface{}) error {
 				return errors.New("uint8 overflow")
 			}
 		default:
-			return fmt.Errorf("expected uint type but got %v", v.Kind())
+			return fmt.Errorf("expected uint type but got %v", ve.Kind())
 		}
 
-		v.SetUint(uVal)
+		ve.SetUint(uVal)
 	case dataFloat:
 		fVal, err := strconv.ParseFloat(encodedValue, 64)
 		if err != nil {
 			return err
 		}
 
-		switch v.Kind() {
+		switch ve.Kind() {
 		case reflect.Float64:
 		case reflect.Float32:
 			if isFloat32Overflow(fVal) {
 				return errors.New("float32 overflow")
 			}
 		default:
-			return fmt.Errorf("expected float type but got %v", v.Kind())
+			return fmt.Errorf("expected float type but got %v", ve.Kind())
 		}
 
-		v.SetFloat(fVal)
+		ve.SetFloat(fVal)
 	case dataComplexNum:
 		var real, imag float64
 		if _, err := fmt.Sscanf(encodedValue, "(%f+%fi)", &real, &imag); err != nil {
 			return err
 		}
 
-		switch v.Kind() {
+		switch ve.Kind() {
 		case reflect.Complex128:
 		case reflect.Complex64:
 			if isFloat32Overflow(real) {
@@ -517,22 +517,25 @@ func decodeValue(dataType int, encodedValue string, value interface{}) error {
 				return errors.New("complex imaginary float32 overflow")
 			}
 		default:
-			return fmt.Errorf("expected complex type but got %v", v.Kind())
+			return fmt.Errorf("expected complex type but got %v", ve.Kind())
 		}
 
-		v.SetComplex(complex(real, imag))
+		ve.SetComplex(complex(real, imag))
 	case dataBool:
-		if v.Kind() != reflect.Bool {
-			return fmt.Errorf("expected bool type but got %v", v.Kind())
+		if ve.Kind() != reflect.Bool {
+			return fmt.Errorf("expected bool type but got %v", ve.Kind())
 		}
 		if encodedValue == "t" {
-			v.SetBool(true)
+			ve.SetBool(true)
 		} else if encodedValue == "f" {
-			v.SetBool(false)
+			ve.SetBool(false)
 		} else {
 			return fmt.Errorf("unexpected encoded bool value: %s", encodedValue)
 		}
 	case dataArraySlice, dataMap, dataStructJson:
+		// Zero values to ensure that fields not in the json are zeroed out
+		ve.Set(reflect.Zero(ve.Type()))
+
 		if err := json.Unmarshal([]byte(encodedValue), value); err != nil {
 			return err
 		}
