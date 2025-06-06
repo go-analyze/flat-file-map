@@ -925,6 +925,16 @@ func TestSetAndGet(t *testing.T) {
 			getValue: new(complex128),
 		},
 		{
+			name:     "Complex64NegImag",
+			setValue: complex64(complex(5, -6)),
+			getValue: new(complex64),
+		},
+		{
+			name:     "Complex128Neg",
+			setValue: complex128(complex(-7, -8)),
+			getValue: new(complex128),
+		},
+		{
 			name:     "CustomStruct",
 			setValue: struct{ Name string }{"Test"},
 			getValue: new(struct{ Name string }),
