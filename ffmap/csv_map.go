@@ -503,24 +503,26 @@ func decodeValue(dataType int, encodedValue string, value interface{}) error {
 
 		ve.SetFloat(fVal)
 	case dataComplexNum:
-		var real, imag float64
-		if _, err := fmt.Sscanf(encodedValue, "(%f+%fi)", &real, &imag); err != nil {
+		c, err := strconv.ParseComplex(encodedValue, 128)
+		if err != nil {
 			return err
 		}
 
+		realVal, imagVal := real(c), imag(c)
 		switch ve.Kind() {
 		case reflect.Complex128:
+			// value can be set directly, ParseComplex already used float64 precision
 		case reflect.Complex64:
-			if isFloat32Overflow(real) {
+			if isFloat32Overflow(realVal) {
 				return errors.New("complex real float32 overflow")
-			} else if isFloat32Overflow(imag) {
+			} else if isFloat32Overflow(imagVal) {
 				return errors.New("complex imaginary float32 overflow")
 			}
 		default:
 			return fmt.Errorf("expected complex type but got %v", ve.Kind())
 		}
 
-		ve.SetComplex(complex(real, imag))
+		ve.SetComplex(complex(realVal, imagVal))
 	case dataBool:
 		if ve.Kind() != reflect.Bool {
 			return fmt.Errorf("expected bool type but got %v", ve.Kind())
