@@ -2612,6 +2612,28 @@ func verifyEmpty(t *testing.T, m *KeyValueCSV, oldKey string) {
 	assert.Empty(t, m.KeySet())
 }
 
+func TestIsFloat32Overflow(t *testing.T) {
+	t.Parallel()
+	testCases := []struct {
+		name     string
+		value    float64
+		overflow bool
+	}{
+		{name: "Zero", value: 0, overflow: false},
+		{name: "Small", value: 123.456, overflow: false},
+		{name: "MaxFloat32", value: math.MaxFloat32, overflow: false},
+		{name: "NegMaxFloat32", value: -math.MaxFloat32, overflow: false},
+		{name: "OverPos", value: math.MaxFloat32 * 2, overflow: true},
+		{name: "OverNeg", value: -math.MaxFloat32 * 2, overflow: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.overflow, isFloat32Overflow(tc.value))
+		})
+	}
+}
+
 func FuzzLoadRecords(f *testing.F) {
 	f.Add("3,AAAA,BBBB")
 	f.Add("4,AAAA,11")
