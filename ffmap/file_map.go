@@ -44,7 +44,7 @@ type MutableFFMap interface {
 	// DeleteAll will clear or delete all entries from the map.
 	DeleteAll()
 	// Commit will update the disk representation to match the in-memory state.  If this is not invoked the disk will
-	// never be updated.  This must not be called concurrently, and may be slow as the file format is optimized.
+	// never be updated.  The operation may be slow as the file format is optimized.
 	Commit() error
 }
 
@@ -103,7 +103,7 @@ type TypedFFMap[T any] struct {
 }
 
 // NewTypedFFMap provides a TypedFFMap which will operate with only the specific generic value type provided.
-// If the underline map contains values of other types, an error will be returned when the value is attempted to be retrieved.
+// If the underlying map contains values of other types, an error will be returned when the value is attempted to be retrieved.
 func NewTypedFFMap[T any](ffm MutableFFMap) *TypedFFMap[T] {
 	return &TypedFFMap[T]{ffm}
 }
@@ -165,7 +165,7 @@ func (tfm *TypedFFMap[T]) DeleteAll() {
 }
 
 // Commit will update the disk representation to match the in-memory state.  If this is not invoked the disk will
-// never be updated.  This must not be called concurrently, and may be slow as the file format is optimized.
+// never be updated.  The operation may be slow as the file format is optimized.
 func (tfm *TypedFFMap[T]) Commit() error {
 	return tfm.ffm.Commit()
 }

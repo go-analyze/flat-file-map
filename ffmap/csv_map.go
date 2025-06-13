@@ -141,6 +141,7 @@ func (kv *KeyValueCSV) loadRecords(records [][]string) error {
 	return nil
 }
 
+// Size returns the number of key-value pairs stored in the map.
 func (kv *KeyValueCSV) Size() int {
 	kv.rwLock.RLock()
 	defer kv.rwLock.RUnlock()
@@ -552,6 +553,7 @@ func isFloat32Overflow(fVal float64) bool {
 	return math.IsInf(float64(f32Val), 0)
 }
 
+// Set stores the provided value under the given key, replacing any existing entry.
 func (kv *KeyValueCSV) Set(key string, value interface{}) error {
 	item, err := encodeValue(value)
 	if err != nil {
@@ -615,6 +617,7 @@ func (kv *KeyValueCSV) setItemMap(items map[string]*dataItem) {
 	}
 }
 
+// Delete removes the key from the map if it exists.
 func (kv *KeyValueCSV) Delete(key string) {
 	kv.rwLock.Lock()
 	defer kv.rwLock.Unlock()
@@ -623,12 +626,13 @@ func (kv *KeyValueCSV) Delete(key string) {
 	delete(kv.data, key)
 }
 
+// DeleteAll removes all entries from the map.
 func (kv *KeyValueCSV) DeleteAll() {
 	kv.rwLock.Lock()
 	defer kv.rwLock.Unlock()
 
 	kv.modCount++
-	kv.data = make(map[string]dataItem)
+	clear(kv.data)
 }
 
 // lockedRead will acquire a read lock before loading the value, use this function whenever you don't
@@ -641,6 +645,8 @@ func (kv *KeyValueCSV) lockedRead(key string) (dataItem, bool) {
 	return dataVal, ok
 }
 
+// Get decodes the value for key into the provided pointer. The returned bool
+// indicates whether the key was found.
 func (kv *KeyValueCSV) Get(key string, value interface{}) (bool, error) {
 	if dataVal, ok := kv.lockedRead(key); !ok {
 		return false, nil
@@ -651,11 +657,13 @@ func (kv *KeyValueCSV) Get(key string, value interface{}) (bool, error) {
 	}
 }
 
+// ContainsKey reports whether the given key exists in the map.
 func (kv *KeyValueCSV) ContainsKey(key string) bool {
 	_, found := kv.lockedRead(key)
 	return found
 }
 
+// KeySet returns all keys stored in the map.
 func (kv *KeyValueCSV) KeySet() []string {
 	kv.rwLock.RLock()
 	defer kv.rwLock.RUnlock()
@@ -663,6 +671,7 @@ func (kv *KeyValueCSV) KeySet() []string {
 	return mapKeys(kv.data)
 }
 
+// Commit writes the current state of the map to disk.
 func (kv *KeyValueCSV) Commit() error {
 	kv.rwLock.Lock()
 	defer kv.rwLock.Unlock()
