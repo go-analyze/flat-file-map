@@ -2,7 +2,10 @@ module github.com/go-analyze/flat-file-map
 
 go 1.21
 
-require github.com/stretchr/testify v1.10.0
+require (
+	github.com/go-analyze/bulk v0.0.5
+	github.com/stretchr/testify v1.10.0
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
