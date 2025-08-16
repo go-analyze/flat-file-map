@@ -1,8 +1,6 @@
 package ffmap
 
 import (
-	"fmt"
-	"reflect"
 	"strconv"
 	"testing"
 
@@ -10,69 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type memoryFFMap struct {
-	data map[string]interface{}
-}
-
-func newMemoryFFMap() *memoryFFMap {
-	return &memoryFFMap{
-		data: make(map[string]interface{}),
-	}
-}
-
-func (m *memoryFFMap) Size() int {
-	return len(m.data)
-}
-
-func (m *memoryFFMap) Get(key string, value interface{}) (bool, error) {
-	storedValue, exists := m.data[key]
-	if !exists {
-		return false, nil
-	}
-
-	valType := reflect.TypeOf(value)
-	if reflect.TypeOf(storedValue) != valType.Elem() {
-		return false, fmt.Errorf("type mismatch: expected %v, got %v", valType.Elem(), reflect.TypeOf(storedValue))
-	}
-
-	reflect.ValueOf(value).Elem().Set(reflect.ValueOf(storedValue))
-	return true, nil
-}
-
-func (m *memoryFFMap) ContainsKey(key string) bool {
-	_, exists := m.data[key]
-	return exists
-}
-
-func (m *memoryFFMap) KeySet() []string {
-	keys := make([]string, 0, len(m.data))
-	for k := range m.data {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
-func (m *memoryFFMap) Set(key string, value interface{}) error {
-	m.data[key] = value
-	return nil
-}
-
-func (m *memoryFFMap) Delete(key string) {
-	delete(m.data, key)
-}
-
-func (m *memoryFFMap) DeleteAll() {
-	m.data = make(map[string]interface{})
-}
-
-func (m *memoryFFMap) Commit() error {
-	return nil
-}
-
 func TestTypedFFMap(t *testing.T) {
 	t.Run("Size", func(t *testing.T) {
 		t.Parallel()
-		tfm := NewTypedFFMap[string](newMemoryFFMap())
+		tfm := NewTypedFFMap[string](NewMemoryMap())
 
 		assert.Equal(t, 0, tfm.Size())
 
@@ -83,14 +22,14 @@ func TestTypedFFMap(t *testing.T) {
 	})
 	t.Run("GetMissing", func(t *testing.T) {
 		t.Parallel()
-		tfm := NewTypedFFMap[string](newMemoryFFMap())
+		tfm := NewTypedFFMap[string](NewMemoryMap())
 
 		_, ok := tfm.Get("foo")
 		assert.False(t, ok)
 	})
 	t.Run("SetAndGet", func(t *testing.T) {
 		t.Parallel()
-		tfm := NewTypedFFMap[string](newMemoryFFMap())
+		tfm := NewTypedFFMap[string](NewMemoryMap())
 
 		key := "keySetAndGet"
 		value := "value"
@@ -104,7 +43,7 @@ func TestTypedFFMap(t *testing.T) {
 	})
 	t.Run("SetMapValues", func(t *testing.T) {
 		t.Parallel()
-		tfm := NewTypedFFMap[string](newMemoryFFMap())
+		tfm := NewTypedFFMap[string](NewMemoryMap())
 
 		values := map[string]string{
 			"a": "1",
@@ -123,7 +62,7 @@ func TestTypedFFMap(t *testing.T) {
 	})
 	t.Run("SetSliceValues", func(t *testing.T) {
 		t.Parallel()
-		tfm := NewTypedFFMap[int](newMemoryFFMap())
+		tfm := NewTypedFFMap[int](NewMemoryMap())
 
 		values := []int{0, 1, 2, 3, 4}
 
@@ -137,7 +76,7 @@ func TestTypedFFMap(t *testing.T) {
 	})
 	t.Run("ContainsKey", func(t *testing.T) {
 		t.Parallel()
-		tfm := NewTypedFFMap[string](newMemoryFFMap())
+		tfm := NewTypedFFMap[string](NewMemoryMap())
 		key := "ContainsKey"
 
 		assert.False(t, tfm.ContainsKey(key))
@@ -149,7 +88,7 @@ func TestTypedFFMap(t *testing.T) {
 	})
 	t.Run("KeySet", func(t *testing.T) {
 		t.Parallel()
-		tfm := NewTypedFFMap[string](newMemoryFFMap())
+		tfm := NewTypedFFMap[string](NewMemoryMap())
 		key := "key"
 
 		assert.Empty(t, tfm.KeySet())
@@ -163,7 +102,7 @@ func TestTypedFFMap(t *testing.T) {
 	})
 	t.Run("Delete", func(t *testing.T) {
 		t.Parallel()
-		tfm := NewTypedFFMap[string](newMemoryFFMap())
+		tfm := NewTypedFFMap[string](NewMemoryMap())
 
 		key := "keyDelete"
 		err := tfm.Set(key, "value")
@@ -175,7 +114,7 @@ func TestTypedFFMap(t *testing.T) {
 	})
 	t.Run("DeleteAll", func(t *testing.T) {
 		t.Parallel()
-		tfm := NewTypedFFMap[string](newMemoryFFMap())
+		tfm := NewTypedFFMap[string](NewMemoryMap())
 
 		key := "keyDeleteAll"
 		require.NoError(t, tfm.Set(key, "value"))

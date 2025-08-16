@@ -4,11 +4,67 @@ import (
 	"errors"
 )
 
+// EncodingError indicates a value cannot be encoded for storage.
+type EncodingError struct {
+	// Key provides the key being set during the encoding.
+	Key string
+	// Value provides the value that failed to encode.
+	Value interface{}
+	// Message provides the flat file map context of the failure.
+	Message string
+	// Err provides the underline error if it was sourced from another encoding (e.g. json.Marshal failure).
+	Err error
+}
+
+func (e *EncodingError) Error() string {
+	if e.Key != "" {
+		return "encoding error for key \"" + e.Key + "\": " + e.Message
+	}
+	return "encoding error: " + e.Message
+}
+
+func (e *EncodingError) Unwrap() error {
+	return e.Err
+}
+
+// TypeMismatchError indicates type conversion issues (including overflow).
+type TypeMismatchError struct {
+	// Key provides the key being retrieved.
+	Key string
+	// Message provides the context of the failure.
+	Message string
+}
+
+func (e *TypeMismatchError) Error() string {
+	if e.Key != "" {
+		return "type mismatch error for key \"" + e.Key + "\": " + e.Message
+	}
+	return "type mismatch error: " + e.Message
+}
+
+// ValidationError indicates invalid input parameters or file format.
+type ValidationError struct {
+	// Message provides the context of the failure.
+	Message string
+	// Err provides the underline error if any.
+	Err error
+}
+
+func (e *ValidationError) Error() string {
+	return "validation error: " + e.Message
+}
+
+func (e *ValidationError) Unwrap() error {
+	return e.Err
+}
+
 // OpenCSV will create or read an existing CSV map file.
 func OpenCSV(filename string) (*KeyValueCSV, error) {
 	db := &KeyValueCSV{
 		filename: filename,
-		data:     make(map[string]dataItem),
+		memoryMap: &memoryJsonMap{
+			data: make(map[string]dataItem),
+		},
 	}
 	if err := db.loadFromDisk(); err != nil {
 		return nil, err
@@ -20,6 +76,14 @@ func OpenCSV(filename string) (*KeyValueCSV, error) {
 // OpenReadOnlyCSV will read a CSV map file, providing a read only view of the data.
 func OpenReadOnlyCSV(filename string) (FFMap, error) {
 	return OpenCSV(filename)
+}
+
+// NewMemoryMap creates a new in-memory map, this map behaves the same as persistent maps.
+// This is primarily intended for testing, all operations are thread-safe and the Commit method is a no-op.
+func NewMemoryMap() MutableFFMap {
+	return &memoryJsonMap{
+		data: make(map[string]dataItem),
+	}
 }
 
 type FFMap interface {
@@ -58,7 +122,7 @@ func SetAll[T any](kv MutableFFMap, m map[string]T) error {
 // (if multiple errors occurred).
 func SetMapValues[T any](kv MutableFFMap, m map[string]T) error {
 	if kv == nil {
-		return errors.New("nil MutableFFMap")
+		return &ValidationError{Message: "nil MutableFFMap"}
 	}
 
 	if csvKV, ok := kv.(*KeyValueCSV); ok {
@@ -79,9 +143,9 @@ func SetMapValues[T any](kv MutableFFMap, m map[string]T) error {
 // with the returned error being a joined error (if multiple errors occurred).
 func SetSliceValues[T any](kv MutableFFMap, s []T, keyProvider func(value T) string) error {
 	if kv == nil {
-		return errors.New("nil MutableFFMap")
+		return &ValidationError{Message: "nil MutableFFMap"}
 	} else if keyProvider == nil {
-		return errors.New("nil keyProvider function")
+		return &ValidationError{Message: "nil keyProvider function"}
 	}
 
 	if csvKV, ok := kv.(*KeyValueCSV); ok {

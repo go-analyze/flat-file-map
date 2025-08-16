@@ -117,7 +117,7 @@ func BenchmarkCSVCommit(b *testing.B) {
 	writer := &noOpWriter{}
 
 	for i := 0; i < b.N; i++ {
-		mOrig.modCount++
+		mOrig.memoryMap.modCount++
 		if err := mOrig.commitTo(writer); err != nil {
 			panic(err)
 		}
