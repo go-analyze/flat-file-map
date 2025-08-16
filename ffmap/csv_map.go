@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-// KeyValueCSV provides a primarily in-memory key value map, with the ability to load and commit the contents to disk.
+// KeyValueCSV provides a primarily in-memory key-value map with the ability to load and commit the contents to disk.
 type KeyValueCSV struct {
 	filename  string
 	memoryMap *memoryJsonMap
@@ -22,7 +22,7 @@ type KeyValueCSV struct {
 
 const currentFileVersion = "ver:0"
 
-// loadFromDisk updates the map with data from the disk.
+// loadFromDisk updates the map with data from disk.
 func (kv *KeyValueCSV) loadFromDisk() error {
 	kv.memoryMap.rwLock.Lock()
 	defer kv.memoryMap.rwLock.Unlock()
@@ -39,6 +39,7 @@ func (kv *KeyValueCSV) loadFromDisk() error {
 	return kv.loadFromReader(file)
 }
 
+// loadFromReader parses CSV data from a reader and loads it into the memory map.
 func (kv *KeyValueCSV) loadFromReader(r io.Reader) error {
 	reader := csv.NewReader(r)
 	reader.FieldsPerRecord = -1 // disable check, field counts will vary
@@ -50,6 +51,7 @@ func (kv *KeyValueCSV) loadFromReader(r io.Reader) error {
 	return kv.loadRecords(records)
 }
 
+// loadRecords processes parsed CSV records and populates the memory map.
 func (kv *KeyValueCSV) loadRecords(records [][]string) error {
 	var currStructName string
 	var currStructValueNames []string
@@ -113,8 +115,8 @@ func (kv *KeyValueCSV) Set(key string, value interface{}) error {
 	return kv.memoryMap.Set(key, value)
 }
 
-// csvSetMapValues will iterate the provided map and set all the key values into the provided KeyValueCSV. In the case of error,
-// remaining values will still be set, with the returned error being a joined error (if multiple errors occurred).
+// csvSetMapValues iterates the provided map and sets all key-value pairs into the provided KeyValueCSV.
+// If errors occur, remaining values are still set and a joined error is returned.
 func csvSetMapValues[T any](kv *KeyValueCSV, m map[string]T) error {
 	// encode before getting lock
 	items := make(map[string]*dataItem, len(m))
@@ -131,9 +133,9 @@ func csvSetMapValues[T any](kv *KeyValueCSV, m map[string]T) error {
 	return errors.Join(errs...)
 }
 
-// csvSetSliceValues will iterate the provided slice, and using the provided function to derive the key for each slice,
-// set the values into the provided KeyValueCSV. In the case of error, remaining values will still be set,
-// with the returned error being a joined error (if multiple errors occurred).
+// csvSetSliceValues iterates the provided slice, using the keyProvider function to derive the key for each element,
+// and sets the values into the provided KeyValueCSV. If errors occur, remaining values are still set
+// and a joined error is returned.
 func csvSetSliceValues[T any](kv *KeyValueCSV, s []T, keyProvider func(value T) string) error {
 	// encode before getting lock
 	items := make(map[string]*dataItem, len(s))
@@ -160,8 +162,9 @@ func (kv *KeyValueCSV) DeleteAll() {
 	kv.memoryMap.DeleteAll()
 }
 
-// Get decodes the value for key into the provided pointer. The returned bool
-// indicates whether the key was found.
+// Get retrieves the value for the given key into the provided pointer.
+// The returned bool indicates whether the key was found.
+// A returned error indicates a failure to set into the provided value.
 func (kv *KeyValueCSV) Get(key string, value interface{}) (bool, error) {
 	return kv.memoryMap.Get(key, value)
 }
@@ -195,7 +198,7 @@ func (kv *KeyValueCSV) Commit() error {
 	return kv.commitTo(file)
 }
 
-// commitTo writes all current key-value pairs to the provided writer, sorted by data type and then key.
+// commitTo writes all current key-value pairs to the provided writer, sorted by data type then key.
 func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 	// sort keys so output is in a consistent order
 	keys := mapKeys(kv.memoryMap.data)

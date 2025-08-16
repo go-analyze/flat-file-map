@@ -1,10 +1,12 @@
+// Package ffmap provides a flat-file key-value storage library
+// optimized for plain text storage (like in git).
 package ffmap
 
 import (
 	"errors"
 )
 
-// EncodingError indicates a value cannot be encoded for storage.
+// EncodingError indicates that a value cannot be encoded for storage.
 type EncodingError struct {
 	// Key provides the key being set during the encoding.
 	Key string
@@ -12,7 +14,7 @@ type EncodingError struct {
 	Value interface{}
 	// Message provides the flat file map context of the failure.
 	Message string
-	// Err provides the underline error if it was sourced from another encoding (e.g. json.Marshal failure).
+	// Err provides the underlying error if it was sourced from another encoding (e.g. json.Marshal failure).
 	Err error
 }
 
@@ -46,7 +48,7 @@ func (e *TypeMismatchError) Error() string {
 type ValidationError struct {
 	// Message provides the context of the failure.
 	Message string
-	// Err provides the underline error if any.
+	// Err provides the underlying error if any.
 	Err error
 }
 
@@ -58,7 +60,7 @@ func (e *ValidationError) Unwrap() error {
 	return e.Err
 }
 
-// OpenCSV will create or read an existing CSV map file.
+// OpenCSV creates or reads an existing CSV map file.
 func OpenCSV(filename string) (*KeyValueCSV, error) {
 	db := &KeyValueCSV{
 		filename: filename,
@@ -73,13 +75,13 @@ func OpenCSV(filename string) (*KeyValueCSV, error) {
 	}
 }
 
-// OpenReadOnlyCSV will read a CSV map file, providing a read only view of the data.
+// OpenReadOnlyCSV reads a CSV map file, providing a read-only view of the data.
 func OpenReadOnlyCSV(filename string) (FFMap, error) {
 	return OpenCSV(filename)
 }
 
-// NewMemoryMap creates a new in-memory map, this map behaves the same as persistent maps.
-// This is primarily intended for testing, all operations are thread-safe and the Commit method is a no-op.
+// NewMemoryMap creates a new in-memory map. This map behaves the same as persistent maps,
+// however Commit is a no-op. This is most useful for testing when persistence is not desired.
 func NewMemoryMap() MutableFFMap {
 	return &memoryJsonMap{
 		data: make(map[string]dataItem),
@@ -89,26 +91,28 @@ func NewMemoryMap() MutableFFMap {
 type FFMap interface {
 	// Size reports how many entries are stored in the map.
 	Size() int
-	// Get will set the value for the given key.  The returned bool indicates if the value was found and matches the
-	// type, check the error for possible parsing or type errors.
+	// Get retrieves the value for the given key into the provided pointer.
+	// The returned bool indicates if the value was found and matches the type.
+	// Check the error for possible parsing, or type errors in setting into the provided value.
 	Get(key string, value interface{}) (bool, error)
-	// ContainsKey will return true if the map has an associated value with the provided key.
+	// ContainsKey reports whether the map has an associated value with the provided key.
 	ContainsKey(key string) bool
-	// KeySet will return all the keys stored within the map.
+	// KeySet returns all keys stored within the map.
 	KeySet() []string
 }
 
 type MutableFFMap interface {
 	FFMap
-	// Set will set the provided value into the map, when retrieved the same type must be used.  If a value already
-	// exists, it will be replaced with the new value.
+	// Set stores the provided value in the map. When retrieved, the same type must be used.
+	// If a value already exists, it will be replaced with the new value.
 	Set(key string, value interface{}) error
-	// Delete will remove the key from the map (if present).
+	// Delete removes the key from the map if present.
 	Delete(key string)
-	// DeleteAll will clear or delete all entries from the map.
+	// DeleteAll will clear or remove all entries from the map.
 	DeleteAll()
-	// Commit will update the disk representation to match the in-memory state.  If this is not invoked the disk will
-	// never be updated.  The operation may be slow as the file format is optimized.
+	// Commit updates the disk representation to match the in-memory state.
+	// If this is not invoked, the disk will never be updated.
+	// The operation may be slow as the file format is optimized.
 	Commit() error
 }
 
@@ -117,9 +121,8 @@ func SetAll[T any](kv MutableFFMap, m map[string]T) error {
 	return SetMapValues(kv, m)
 }
 
-// SetMapValues will iterate the provided map and set all the key values into the provided MutableFFMap.
-// In the case of error, remaining values will still be set, with the returned error being a joined error
-// (if multiple errors occurred).
+// SetMapValues iterates the provided map and sets all key-value pairs into the provided MutableFFMap.
+// If errors occur, remaining values are still set and a joined error is returned.
 func SetMapValues[T any](kv MutableFFMap, m map[string]T) error {
 	if kv == nil {
 		return &ValidationError{Message: "nil MutableFFMap"}
@@ -138,9 +141,9 @@ func SetMapValues[T any](kv MutableFFMap, m map[string]T) error {
 	}
 }
 
-// SetSliceValues will iterate the provided slice, and using the provided function to derive the key for each slice,
-// set the values into the provided MutableFFMap. In the case of error, remaining values will still be set,
-// with the returned error being a joined error (if multiple errors occurred).
+// SetSliceValues iterates the provided slice, using the keyProvider function to derive the key for each element,
+// and sets the values into the provided MutableFFMap. If errors occur, remaining values are still set
+// and a joined error is returned.
 func SetSliceValues[T any](kv MutableFFMap, s []T, keyProvider func(value T) string) error {
 	if kv == nil {
 		return &ValidationError{Message: "nil MutableFFMap"}
@@ -161,13 +164,13 @@ func SetSliceValues[T any](kv MutableFFMap, s []T, keyProvider func(value T) str
 	}
 }
 
-// TypedFFMap provides a similar API to the interface MutableFFMap, however it only functions on a single value type.
+// TypedFFMap provides a type-safe wrapper around MutableFFMap that operates on a single value type.
 type TypedFFMap[T any] struct {
 	ffm MutableFFMap
 }
 
-// NewTypedFFMap provides a TypedFFMap which will operate with only the specific generic value type provided.
-// If the underlying map contains values of other types, an error will be returned when the value is attempted to be retrieved.
+// NewTypedFFMap creates a TypedFFMap that operates only with the specified generic value type.
+// If the underlying map contains values of other types, they will apear absent when attempting to retrieve them.
 func NewTypedFFMap[T any](ffm MutableFFMap) *TypedFFMap[T] {
 	return &TypedFFMap[T]{ffm}
 }
@@ -177,8 +180,7 @@ func (tfm *TypedFFMap[T]) Size() int {
 	return tfm.ffm.Size()
 }
 
-// Get will set the value for the given key.  The returned bool indicates if the value was found, if false the returned
-// value is nil or invalid for the type.
+// Get retrieves the value for the given key. The returned bool indicates if the value was found and matches the generic type.
 func (tfm *TypedFFMap[T]) Get(key string) (T, bool) {
 	var val T
 	ok, err := tfm.ffm.Get(key, &val)
@@ -195,7 +197,7 @@ func (tfm *TypedFFMap[T]) KeySet() []string {
 	return tfm.ffm.KeySet()
 }
 
-// Set will set the provided value into the map.  If a value already exists, it will be replaced with the new value.
+// Set stores the provided value into the map. If a value already exists, it will be replaced with the new value.
 func (tfm *TypedFFMap[T]) Set(key string, value T) error {
 	return tfm.ffm.Set(key, value)
 }
@@ -205,15 +207,15 @@ func (tfm *TypedFFMap[T]) SetAll(m map[string]T) error {
 	return tfm.SetMapValues(m)
 }
 
-// SetMapValues will iterate the provided map and set all the key values into the TypedFFMap. In the case of error,
-// remaining values will still be set, with the returned error being a joined error (if multiple errors occurred).
+// SetMapValues iterates the provided map and sets all key-value pairs into the TypedFFMap.
+// If errors occur, remaining values are still set and a joined error is returned.
 func (tfm *TypedFFMap[T]) SetMapValues(m map[string]T) error {
 	return SetMapValues(tfm.ffm, m)
 }
 
-// SetSliceValues will iterate the provided slice, and using the provided function to derive the key for each slice,
-// set the values into the TypedFFMap. In the case of error, remaining values will still be set, with the returned
-// error being a joined error (if multiple errors occurred).
+// SetSliceValues iterates the provided slice, using the keyProvider function to derive the key for each element,
+// and sets the values into the TypedFFMap. If errors occur, remaining values are still set
+// and a joined error is returned.
 func (tfm *TypedFFMap[T]) SetSliceValues(s []T, keyProvider func(value T) string) error {
 	return SetSliceValues(tfm.ffm, s, keyProvider)
 }

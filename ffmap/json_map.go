@@ -13,7 +13,8 @@ import (
 	"sync"
 )
 
-// memoryJsonMap provides a primarily in-memory key value map, this is primarily used for testing or building other map types.
+// memoryJsonMap provides a primarily in-memory key-value map.
+// This is primarily used for testing or building other map types.
 type memoryJsonMap struct {
 	rwLock   sync.RWMutex
 	data     map[string]dataItem
@@ -59,6 +60,7 @@ func (kv *memoryJsonMap) Size() int {
 	return len(kv.data)
 }
 
+// encodeValue converts a Go value into a dataItem for storage.
 func encodeValue(value interface{}) (*dataItem, error) {
 	var dataType int
 	var structId string
@@ -124,11 +126,11 @@ func encodeValue(value interface{}) (*dataItem, error) {
 	return &dataItem{dataType: dataType, structId: structId, value: strVal}, nil
 }
 
-// stripZeroFields removes default / empty / zero-value fields from a struct while preserving non-nil pointers
+// stripZeroFields removes default/empty/zero-value fields from a struct while preserving non-nil pointers
 // and correctly serializing custom json.Marshaler types. It also preserves []byte so that json.Marshal
 // will encode them as base64, and preserves fixed-size byte arrays so that they remain JSON arrays.
 //
-// This allows us to reduce our stored json to only what is necessary to accurately recreate the struct state on Get.
+// This allows reducing stored JSON to only what is necessary to accurately recreate the struct state on Get.
 func stripZeroFields(v reflect.Value) interface{} {
 	if !v.IsValid() {
 		return nil
@@ -265,6 +267,7 @@ func stripZeroFields(v reflect.Value) interface{} {
 	}
 }
 
+// decodeValue converts a stored dataItem back into a Go value.
 func decodeValue(dataType int, encodedValue string, value interface{}) error {
 	ve := reflect.ValueOf(value).Elem()
 	switch dataType {
@@ -394,6 +397,7 @@ func decodeValue(dataType int, encodedValue string, value interface{}) error {
 	return nil
 }
 
+// isFloat32Overflow checks if a float64 value would overflow when converted to float32.
 func isFloat32Overflow(fVal float64) bool {
 	f32Val := float32(fVal)
 	return math.IsInf(float64(f32Val), 0)
@@ -419,6 +423,7 @@ func (kv *memoryJsonMap) Set(key string, value interface{}) error {
 	return nil
 }
 
+// setItemMap bulk sets multiple dataItems in the map.
 func (kv *memoryJsonMap) setItemMap(items map[string]*dataItem) {
 	if len(items) != 0 {
 		kv.rwLock.Lock()
@@ -449,8 +454,8 @@ func (kv *memoryJsonMap) DeleteAll() {
 	clear(kv.data)
 }
 
-// lockedRead will acquire a read lock before loading the value, use this function whenever you don't
-// already hold a lock.  Using this ensures that the read lock is promptly released.
+// lockedRead acquires a read lock before loading the value.
+// Use this function whenever you don't already hold a lock to ensure the read lock is promptly released.
 func (kv *memoryJsonMap) lockedRead(key string) (dataItem, bool) {
 	kv.rwLock.RLock()
 	defer kv.rwLock.RUnlock()
@@ -459,8 +464,9 @@ func (kv *memoryJsonMap) lockedRead(key string) (dataItem, bool) {
 	return dataVal, ok
 }
 
-// Get decodes the value for key into the provided pointer. The returned bool
-// indicates whether the key was found.
+// Get retrieves the value for the given key into the provided pointer.
+// The returned bool indicates whether the key was found.
+// A returned error indicates a failure in setting into the provided value.
 func (kv *memoryJsonMap) Get(key string, value interface{}) (bool, error) {
 	if dataVal, ok := kv.lockedRead(key); !ok {
 		return false, nil

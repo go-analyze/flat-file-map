@@ -49,8 +49,8 @@ func isZeroValue(v reflect.Value) bool {
 	}
 }
 
-// zeroValue returns the default or zero value for the provided reflected field. This is the counterpart to isZeroValue
-// used for encoding needed zero values that were omitted.
+// zeroValue returns the default or zero value for the provided reflected field.
+// This is the counterpart to isZeroValue used for encoding needed zero values that were omitted.
 func zeroValue(t reflect.Kind) interface{} {
 	// not all types are possible after json.Unmarshal, but specified for completeness
 	switch t {

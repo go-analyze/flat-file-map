@@ -4,6 +4,7 @@ import (
 	"github.com/go-analyze/bulk"
 )
 
+// mapKeys extracts all keys from the provided map.
 func mapKeys[K comparable, V any](m map[K]V) []K {
 	result := make([]K, 0, len(m))
 	for k := range m {
@@ -12,6 +13,7 @@ func mapKeys[K comparable, V any](m map[K]V) []K {
 	return result
 }
 
+// sliceUniqueUnion returns the union of all elements from the provided slices, removing duplicates.
 func sliceUniqueUnion[T comparable](slice [][]T) []T {
 	switch len(slice) {
 	case 0:
