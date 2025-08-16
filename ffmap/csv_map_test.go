@@ -331,7 +331,7 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 			"nil":     {Value: "nil", Any: nil},
 		}
 
-		require.NoError(t, SetAll(m, values))
+		require.NoError(t, SetMapValues(m, values))
 		require.NoError(t, m.Commit())
 
 		mNew, err := OpenReadOnlyCSV(tmpFile)
@@ -499,7 +499,7 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 			"mapStringString": map[string]string{"key1": "value1", "key2": "value2"},
 		}
 
-		require.NoError(t, SetAll(mOrig, testData))
+		require.NoError(t, SetMapValues(mOrig, testData))
 		require.NoError(t, mOrig.Commit())
 
 		mNew, err := OpenReadOnlyCSV(tmpFile)
@@ -2169,7 +2169,7 @@ func TestKeyValueCSV_GetInvalidType(t *testing.T) {
 		"mapStringString":  map[string]string{"key1": "value1", "key2": "value2"},
 	}
 
-	require.NoError(t, SetAll(m, testData))
+	require.NoError(t, SetMapValues(m, testData))
 
 	for key := range testData {
 		for mismatchKey, mismatchValue := range testData {
@@ -2484,7 +2484,6 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 		})
 	}
 
-	// extra tests
 	t.Run("MixedFieldsSize", func(t *testing.T) {
 		tmpFile, m := makeTestMap(t)
 		defer os.Remove(tmpFile)
@@ -2504,11 +2503,12 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, SetAll(m, values))
+		require.NoError(t, SetMapValues(m, values))
 
 		require.NoError(t, m.Commit())
 		verifyFileSize(t, tmpFile, 670)
 	})
+
 	t.Run("MixedFieldTypes", func(t *testing.T) {
 		tmpFile, m := makeTestMap(t)
 		defer os.Remove(tmpFile)
@@ -2519,7 +2519,7 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 			"nil": {Value: "nil", Any: nil},
 		}
 
-		require.NoError(t, SetAll(m, values))
+		require.NoError(t, SetMapValues(m, values))
 
 		require.NoError(t, m.Commit())
 		verifyFileSize(t, tmpFile, 114)

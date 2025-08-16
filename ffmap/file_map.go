@@ -116,11 +116,6 @@ type MutableFFMap interface {
 	Commit() error
 }
 
-// Deprecated: SetAll is deprecated, use SetMapValues.
-func SetAll[T any](kv MutableFFMap, m map[string]T) error {
-	return SetMapValues(kv, m)
-}
-
 // SetMapValues iterates the provided map and sets all key-value pairs into the provided MutableFFMap.
 // If errors occur, remaining values are still set and a joined error is returned.
 func SetMapValues[T any](kv MutableFFMap, m map[string]T) error {
@@ -200,11 +195,6 @@ func (tfm *TypedFFMap[T]) KeySet() []string {
 // Set stores the provided value into the map. If a value already exists, it will be replaced with the new value.
 func (tfm *TypedFFMap[T]) Set(key string, value T) error {
 	return tfm.ffm.Set(key, value)
-}
-
-// Deprecated: SetAll is deprecated, use SetMapValues.
-func (tfm *TypedFFMap[T]) SetAll(m map[string]T) error {
-	return tfm.SetMapValues(m)
 }
 
 // SetMapValues iterates the provided map and sets all key-value pairs into the TypedFFMap.
