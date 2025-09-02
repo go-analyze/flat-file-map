@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/go-analyze/bulk v0.1.0
-	github.com/stretchr/testify v1.11.0
+	github.com/stretchr/testify v1.11.1
 )
 
 require (
