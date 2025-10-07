@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 )
 
 // KeyValueCSV provides a primarily in-memory key-value map with the ability to load and commit the contents to disk.
@@ -27,7 +28,7 @@ func (kv *KeyValueCSV) loadFromDisk() error {
 	kv.memoryMap.rwLock.Lock()
 	defer kv.memoryMap.rwLock.Unlock()
 
-	file, err := os.Open(kv.filename)
+	file, err := os.OpenFile(kv.filename, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -189,7 +190,7 @@ func (kv *KeyValueCSV) Commit() error {
 	}
 	kv.commitMod = kv.memoryMap.modCount
 
-	file, err := os.Create(kv.filename)
+	file, err := os.OpenFile(kv.filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|syscall.O_NOFOLLOW, 0644)
 	if err != nil {
 		return err
 	}

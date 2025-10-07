@@ -27,6 +27,7 @@ func makeTestMap(t *testing.T) (string, *KeyValueCSV) {
 			panic(err)
 		}
 	} else {
+		t.Cleanup(func() { _ = os.Remove(tmpfile.Name()) })
 		require.NoError(t, err)
 	}
 	m, err := OpenCSV(tmpfile.Name())
@@ -152,14 +153,14 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 	t.Run("OpenEmpty", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		defer func() { _ = os.Remove(tmpFile) }()
 
 		assert.Equal(t, 0, m.Size())
 	})
+
 	t.Run("OpenMissing", func(t *testing.T) {
 		t.Parallel()
 		tmpfile, err := os.CreateTemp("", "testm.*.csv")
-		defer os.Remove(tmpfile.Name())
 		require.NoError(t, err)
 		require.NoError(t, os.Remove(tmpfile.Name()))
 		m, err := OpenCSV(tmpfile.Name())
@@ -167,10 +168,10 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 
 		assert.Equal(t, 0, m.Size())
 	})
+
 	t.Run("SaveAndLoadMaps", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
-		defer os.Remove(tmpFile)
 
 		values := make(map[string]string)
 		for i := 0; i < 20; i++ {
@@ -192,10 +193,10 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 			assert.Equal(t, expectedValue, actualValue)
 		}
 	})
+
 	t.Run("SaveAndLoadNamedStruct", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
-		defer os.Remove(tmpFile)
 
 		values := make(map[string]TestNamedStruct)
 		for i := 0; i < 20; i++ {
@@ -217,10 +218,10 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 			assert.Equal(t, expectedValue, actualValue)
 		}
 	})
+
 	t.Run("SaveAndLoadEmbeddedStruct", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
-		defer os.Remove(tmpFile)
 
 		values := make(map[string]TestStructEmbedded)
 		for i := 0; i < 20; i++ {
@@ -246,10 +247,10 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 			assert.Equal(t, expectedValue, actualValue)
 		}
 	})
+
 	t.Run("SaveAndLoadNestedStruct", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
-		defer os.Remove(tmpFile)
 
 		values := make(map[string]TestNestedStruct)
 		for i := 0; i < 20; i++ {
@@ -275,10 +276,10 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 			assert.Equal(t, expectedValue, actualValue)
 		}
 	})
+
 	t.Run("SaveAndLoadDeepNestedStruct", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
-		defer os.Remove(tmpFile)
 
 		values := make(map[string]TestStructWithDeepNesting)
 		for i := 0; i < 20; i++ {
@@ -321,9 +322,9 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 			assert.Equal(t, expectedValue, actualValue)
 		}
 	})
+
 	t.Run("SaveAndLoadAnyStructMixedTypes", func(t *testing.T) {
 		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
 
 		values := map[string]TestAnyStruct{
 			"float64": {Value: "float64", Any: 1.1},
@@ -345,10 +346,10 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 			assert.Equal(t, expectedValue, actualValue)
 		}
 	})
+
 	t.Run("SaveAndLoadCustomJsonStruct", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
-		defer os.Remove(tmpFile)
 
 		var values []TestCustomJsonStruct
 		for i := 0; i < 200; i++ {
@@ -374,10 +375,10 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 			assert.Equal(t, expectedValue, actualValue)
 		}
 	})
+
 	t.Run("SaveAndLoadDeeplyNestedMapStruct", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
-		defer os.Remove(tmpFile)
 
 		values := make(map[string]TestStructWithDeeplyNestedMap)
 		for i := 0; i < 200; i++ {
@@ -405,12 +406,11 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 			assert.Equal(t, expectedValue, actualValue)
 		}
 	})
+
 	t.Run("CommitOrderString", func(t *testing.T) {
 		t.Parallel()
 		tmpFile1, m1 := makeTestMap(t)
-		defer os.Remove(tmpFile1)
 		tmpFile2, m2 := makeTestMap(t)
-		defer os.Remove(tmpFile2)
 
 		for a, b := range map[string]string{"foo1": "bar1", "foo2": "bar2", "foo3": "bar3", "foo4": "bar4"} {
 			require.NoError(t, m1.Set(a, b))
@@ -428,12 +428,11 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, string(file1Content), string(file2Content))
 	})
+
 	t.Run("CommitOrderMixed", func(t *testing.T) {
 		t.Parallel()
 		tmpFile1, m1 := makeTestMap(t)
-		defer os.Remove(tmpFile1)
 		tmpFile2, m2 := makeTestMap(t)
-		defer os.Remove(tmpFile2)
 
 		for a, b := range map[string]string{"foo1": "bar1", "foo2": "bar2", "foo3": "bar3", "foo4": "bar4"} {
 			i := len(m1.KeySet())
@@ -461,10 +460,10 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, string(file1Content), string(file2Content))
 	})
+
 	t.Run("SaveAndLoadAllTypes", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
-		defer os.Remove(tmpFile)
 
 		testData := map[string]interface{}{
 			"string":             "foo",
@@ -515,10 +514,10 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 			assert.Equal(t, expectedValue, actualValue)
 		}
 	})
+
 	t.Run("CommitModTracking", func(t *testing.T) {
 		t.Parallel()
-		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		_, m := makeTestMap(t)
 
 		for i, s := range []string{"foo1", "bar1", "foo2", "bar2", "foo3", "bar3", "foo4", "bar4"} {
 			assert.Equal(t, i, m.memoryMap.modCount)
@@ -531,7 +530,6 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 	t.Run("CommitIgnored", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
 
 		require.NoError(t, SetSliceValues(m,
 			[]string{"foo1", "bar1", "foo2", "bar2", "foo3", "bar3", "foo4", "bar4"}, stringReturnFunc))
@@ -541,10 +539,10 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		require.NoError(t, m.Commit()) // no-op commit
 		assert.NoFileExists(t, tmpFile)
 	})
+
 	t.Run("SaveAndLoadAllZeroStruct", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
-		defer os.Remove(tmpFile)
 
 		value := TestNamedStruct{}
 		require.NoError(t, mOrig.Set("allzero1", value))
@@ -563,7 +561,6 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 	t.Run("SaveAndLoadCustomMarshaler", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
-		defer os.Remove(tmpFile)
 
 		values := map[string]TestStructWithEmbeddedCustomMarshaler{
 			"key1": {Embedded: TestCustomMarshaler{Value: "value1", Encoded: json.RawMessage(`"encoded1"`)}, Extra: "extra1"},
@@ -589,10 +586,67 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 	})
 }
 
+func TestKeyValueCSV_RejectSymlinks(t *testing.T) {
+	t.Run("RejectSymlinkOnOpen", func(t *testing.T) {
+		t.Parallel()
+
+		// Create a real file
+		realFile, err := os.CreateTemp("", "real.*.csv")
+		require.NoError(t, err)
+		realFileName := realFile.Name()
+		t.Cleanup(func() { _ = os.Remove(realFileName) })
+		require.NoError(t, realFile.Close())
+
+		// Create a symlink pointing to it
+		symlinkFile, err := os.CreateTemp("", "symlink.*.csv")
+		require.NoError(t, err)
+		symlinkName := symlinkFile.Name()
+		require.NoError(t, symlinkFile.Close())
+		require.NoError(t, os.Remove(symlinkName))
+		require.NoError(t, os.Symlink(realFileName, symlinkName))
+		t.Cleanup(func() { _ = os.Remove(symlinkName) })
+
+		// Try to open via symlink - should fail
+		_, err = OpenCSV(symlinkName)
+		require.Error(t, err)
+	})
+
+	t.Run("RejectSymlinkOnCommit", func(t *testing.T) {
+		t.Parallel()
+
+		// Create a temporary file for the map
+		tmpFile, err := os.CreateTemp("", "testmap.*.csv")
+		require.NoError(t, err)
+		tmpFileName := tmpFile.Name()
+		t.Cleanup(func() { _ = os.Remove(tmpFileName) })
+		require.NoError(t, tmpFile.Close())
+		require.NoError(t, os.Remove(tmpFileName))
+
+		// Open the map normally
+		m, err := OpenCSV(tmpFileName)
+		require.NoError(t, err)
+
+		// Set some data
+		require.NoError(t, m.Set("key", "value"))
+
+		// Now replace the file with a symlink
+		realFile, err := os.CreateTemp("", "real.*.csv")
+		require.NoError(t, err)
+		realFileName := realFile.Name()
+		t.Cleanup(func() { _ = os.Remove(realFileName) })
+		require.NoError(t, realFile.Close())
+
+		require.NoError(t, os.Symlink(realFileName, tmpFileName))
+
+		// Try to commit - should fail
+		err = m.Commit()
+		require.Error(t, err)
+	})
+}
+
 func TestKeyValueCSV_Size(t *testing.T) {
 	t.Parallel()
-	tmpFile, m := makeTestMap(t)
-	defer os.Remove(tmpFile)
+	_, m := makeTestMap(t)
 
 	for i := 0; i < 10; i++ {
 		require.NoError(t, m.Set(fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i)))
@@ -1680,8 +1734,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tmpFile, m := makeTestMap(t)
-			defer os.Remove(tmpFile)
+			_, m := makeTestMap(t)
 
 			key := "testKey-" + tc.name
 			require.NoError(t, m.Set(key, tc.setValue))
@@ -1702,8 +1755,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 		}
 		emptySlice := make([]int, 0)
 		orig := TestPointerSlice{Slice: &emptySlice}
-		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		_, m := makeTestMap(t)
 
 		key := "pointerEmptySlice"
 		require.NoError(t, m.Set(key, orig))
@@ -1723,16 +1775,14 @@ func TestKeyValueCSV_SetMapValues(t *testing.T) {
 	})
 	t.Run("nil_map", func(t *testing.T) {
 		t.Parallel()
-		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		_, m := makeTestMap(t)
 
 		require.NoError(t, SetMapValues[string](m, nil))
 		require.Equal(t, 0, m.Size())
 	})
 	t.Run("basic", func(t *testing.T) {
 		t.Parallel()
-		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		_, m := makeTestMap(t)
 
 		values := map[string]string{
 			"a": "1",
@@ -1753,8 +1803,7 @@ func TestKeyValueCSV_SetMapValues(t *testing.T) {
 	})
 	t.Run("struct", func(t *testing.T) {
 		t.Parallel()
-		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		_, m := makeTestMap(t)
 
 		values := map[string]TestNamedStruct{
 			"a": {
@@ -1787,8 +1836,7 @@ func TestKeyValueCSV_SetMapValues(t *testing.T) {
 	})
 	t.Run("ptr", func(t *testing.T) {
 		t.Parallel()
-		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		_, m := makeTestMap(t)
 
 		values := map[string]*TestNamedStruct{
 			"a": {
@@ -1821,8 +1869,7 @@ func TestKeyValueCSV_SetMapValues(t *testing.T) {
 	})
 	t.Run("middle_error", func(t *testing.T) {
 		t.Parallel()
-		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		_, m := makeTestMap(t)
 
 		values := map[string]*TestNamedStruct{
 			"a": {
@@ -1851,24 +1898,21 @@ func TestKeyValueCSV_SetSliceValues(t *testing.T) {
 	})
 	t.Run("nil_slice", func(t *testing.T) {
 		t.Parallel()
-		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		_, m := makeTestMap(t)
 
 		require.NoError(t, SetSliceValues(m, make([]int, 0), strconv.Itoa))
 		require.Equal(t, 0, m.Size())
 	})
 	t.Run("nil_func", func(t *testing.T) {
 		t.Parallel()
-		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		_, m := makeTestMap(t)
 
 		require.Error(t, SetSliceValues(m, make([]int, 1), nil))
 		require.Equal(t, 0, m.Size())
 	})
 	t.Run("basic", func(t *testing.T) {
 		t.Parallel()
-		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		_, m := makeTestMap(t)
 
 		values := []int{0, 1, 2, 3, 4}
 
@@ -1884,8 +1928,7 @@ func TestKeyValueCSV_SetSliceValues(t *testing.T) {
 	})
 	t.Run("struct", func(t *testing.T) {
 		t.Parallel()
-		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		_, m := makeTestMap(t)
 
 		values := []TestNamedStruct{
 			{
@@ -1920,8 +1963,7 @@ func TestKeyValueCSV_SetSliceValues(t *testing.T) {
 	})
 	t.Run("ptr", func(t *testing.T) {
 		t.Parallel()
-		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		_, m := makeTestMap(t)
 
 		values := []*TestNamedStruct{
 			{
@@ -1956,8 +1998,7 @@ func TestKeyValueCSV_SetSliceValues(t *testing.T) {
 	})
 	t.Run("middle_error", func(t *testing.T) {
 		t.Parallel()
-		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		_, m := makeTestMap(t)
 
 		values := []*TestNamedStruct{
 			{
@@ -2020,8 +2061,7 @@ func TestKeyValueCSV_SetError(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tmpFile, m := makeTestMap(t)
-			defer os.Remove(tmpFile)
+			_, m := makeTestMap(t)
 
 			require.Error(t, m.Set(tc.name, tc.setValue))
 			assert.Equal(t, 0, m.Size())
@@ -2115,8 +2155,7 @@ func TestKeyValueCSV_GetOverflowError(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tmpFile, m := makeTestMap(t)
-			defer os.Remove(tmpFile)
+			_, m := makeTestMap(t)
 
 			key := "testKey-" + tc.name
 			require.NoError(t, m.Set(key, tc.setValue))
@@ -2130,8 +2169,7 @@ func TestKeyValueCSV_GetOverflowError(t *testing.T) {
 
 func TestKeyValueCSV_GetWithZeroFieldsSet(t *testing.T) {
 	t.Parallel()
-	tmpFile, m := makeTestMap(t)
-	defer os.Remove(tmpFile)
+	_, m := makeTestMap(t)
 
 	zeroStruct := TestNamedStruct{}
 	err := m.Set("zero", zeroStruct)
@@ -2153,8 +2191,7 @@ func TestKeyValueCSV_GetWithZeroFieldsSet(t *testing.T) {
 
 func TestKeyValueCSV_GetInvalidType(t *testing.T) {
 	t.Parallel()
-	tmpFile, m := makeTestMap(t)
-	defer os.Remove(tmpFile)
+	_, m := makeTestMap(t)
 
 	testData := map[string]interface{}{
 		"string":           "foo",
@@ -2465,7 +2502,6 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpFile, m := makeTestMap(t)
-			defer os.Remove(tmpFile)
 
 			key1 := "testKey1-" + tc.name
 			require.NoError(t, m.Set(key1, tc.value))
@@ -2486,7 +2522,6 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 
 	t.Run("MixedFieldsSize", func(t *testing.T) {
 		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
 
 		values := map[string]TestNamedStruct{
 			"key1":  {Value: "value", ID: 1},
@@ -2511,7 +2546,6 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 
 	t.Run("MixedFieldTypes", func(t *testing.T) {
 		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
 
 		values := map[string]TestAnyStruct{
 			"int": {Value: "int", Any: 1},
@@ -2531,7 +2565,7 @@ func verifyFileSize(t *testing.T, fileStr string, expectedSize int64) {
 
 	file, err := os.Open(fileStr)
 	require.NoError(t, err)
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	fileInfo, err := file.Stat()
 	require.NoError(t, err)
 
@@ -2548,8 +2582,7 @@ func verifyFileSize(t *testing.T, fileStr string, expectedSize int64) {
 
 func TestKeyValueCSV_ContainsKey(t *testing.T) {
 	t.Parallel()
-	tmpFile, m := makeTestMap(t)
-	defer os.Remove(tmpFile)
+	_, m := makeTestMap(t)
 
 	for _, k := range []string{"foo1", "bar1", "foo2", "bar2"} {
 		require.NoError(t, m.Set(k, k))
@@ -2561,8 +2594,7 @@ func TestKeyValueCSV_ContainsKey(t *testing.T) {
 
 func TestKeyValueCSV_KeySet(t *testing.T) {
 	t.Parallel()
-	tmpFile, m := makeTestMap(t)
-	defer os.Remove(tmpFile)
+	_, m := makeTestMap(t)
 
 	keys := []string{"foo1", "bar1", "foo2", "bar2", "foo3", "bar3", "foo4", "bar4"}
 	require.NoError(t, SetSliceValues(m, keys, stringReturnFunc))
@@ -2576,8 +2608,7 @@ func TestKeyValueCSV_KeySet(t *testing.T) {
 
 func TestKeyValueCSV_Delete(t *testing.T) {
 	t.Parallel()
-	tmpFile, m := makeTestMap(t)
-	defer os.Remove(tmpFile)
+	_, m := makeTestMap(t)
 
 	key := "keyDelete"
 	value := "testValue"
@@ -2590,8 +2621,7 @@ func TestKeyValueCSV_Delete(t *testing.T) {
 
 func TestKeyValueCSV_DeleteAll(t *testing.T) {
 	t.Parallel()
-	tmpFile, m := makeTestMap(t)
-	defer os.Remove(tmpFile)
+	_, m := makeTestMap(t)
 
 	key := "keyDeleteAll"
 	require.NoError(t, m.Set(key, "value"))
@@ -2615,6 +2645,7 @@ func verifyEmpty(t *testing.T, m *KeyValueCSV, oldKey string) {
 
 func TestKeyValueCSV_IsFloat32Overflow(t *testing.T) {
 	t.Parallel()
+
 	testCases := []struct {
 		name     string
 		value    float64
@@ -2739,8 +2770,7 @@ func TestKeyValueCSV_ErrorTypes(t *testing.T) {
 	})
 
 	t.Run("ValidationError_NilKeyProvider", func(t *testing.T) {
-		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		_, m := makeTestMap(t)
 
 		err := SetSliceValues(m, []string{"value"}, nil)
 		require.Error(t, err)
@@ -2754,12 +2784,11 @@ func TestKeyValueCSV_ErrorTypes(t *testing.T) {
 		// Create a file with invalid format
 		tmpFile, err := os.CreateTemp("", "invalid.*.csv")
 		require.NoError(t, err)
-		defer os.Remove(tmpFile.Name())
 
 		// Write invalid header
 		_, err = tmpFile.WriteString("invalid_version\ngarbage_data\n")
 		require.NoError(t, err)
-		tmpFile.Close()
+		require.NoError(t, tmpFile.Close())
 
 		_, err = OpenCSV(tmpFile.Name())
 		require.Error(t, err)
@@ -2770,8 +2799,7 @@ func TestKeyValueCSV_ErrorTypes(t *testing.T) {
 	})
 
 	t.Run("EncodingError_PropagatedFromMemoryMap", func(t *testing.T) {
-		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		_, m := makeTestMap(t)
 
 		// Test that encoding errors from the underlying memory map are propagated
 		err := m.Set("nil_key", nil)
@@ -2784,8 +2812,7 @@ func TestKeyValueCSV_ErrorTypes(t *testing.T) {
 	})
 
 	t.Run("TypeMismatchError_PropagatedFromMemoryMap", func(t *testing.T) {
-		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		_, m := makeTestMap(t)
 
 		require.NoError(t, m.Set("string_key", "string_value"))
 
@@ -2801,8 +2828,7 @@ func TestKeyValueCSV_ErrorTypes(t *testing.T) {
 	})
 
 	t.Run("ErrorTypes_DistinctInCSVContext", func(t *testing.T) {
-		tmpFile, m := makeTestMap(t)
-		defer os.Remove(tmpFile)
+		_, m := makeTestMap(t)
 
 		// Test encoding error
 		encodingErr := m.Set("key1", nil)
