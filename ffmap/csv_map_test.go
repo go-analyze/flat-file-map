@@ -27,8 +27,8 @@ func makeTestMap(t *testing.T) (string, *KeyValueCSV) {
 			panic(err)
 		}
 	} else {
-		t.Cleanup(func() { _ = os.Remove(tmpfile.Name()) })
 		require.NoError(t, err)
+		t.Cleanup(func() { _ = os.Remove(tmpfile.Name()) })
 	}
 	m, err := OpenCSV(tmpfile.Name())
 	if t == nil {
@@ -152,8 +152,7 @@ var stringReturnFunc = func(str string) string { // used in test cases where the
 func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 	t.Run("OpenEmpty", func(t *testing.T) {
 		t.Parallel()
-		tmpFile, m := makeTestMap(t)
-		defer func() { _ = os.Remove(tmpFile) }()
+		_, m := makeTestMap(t)
 
 		assert.Equal(t, 0, m.Size())
 	})
