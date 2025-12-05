@@ -1,7 +1,6 @@
 package ffmap
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"reflect"
@@ -87,7 +86,7 @@ func TestMemoryJsonMap_Get(t *testing.T) {
 		found, err := m.Get("nonexistent", &result)
 		require.NoError(t, err)
 		assert.False(t, found)
-		assert.Equal(t, "", result) // should remain unchanged
+		assert.Empty(t, result) // should remain unchanged
 	})
 
 	t.Run("TypeMismatch", func(t *testing.T) {
@@ -202,172 +201,31 @@ func TestMemoryJsonMap_DataTypes(t *testing.T) {
 	testCases := []struct {
 		name  string
 		value interface{}
-		check func(t *testing.T, retrieved interface{})
+		delta float64 // for float comparisons using InDelta
 	}{
-		{
-			name:  "String",
-			value: "test string",
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, "test string", retrieved)
-			},
-		},
-		{
-			name:  "Int",
-			value: 42,
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, 42, retrieved)
-			},
-		},
-		{
-			name:  "Int8",
-			value: int8(127),
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, int8(127), retrieved)
-			},
-		},
-		{
-			name:  "Int16",
-			value: int16(32767),
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, int16(32767), retrieved)
-			},
-		},
-		{
-			name:  "Int32",
-			value: int32(2147483647),
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, int32(2147483647), retrieved)
-			},
-		},
-		{
-			name:  "Int64",
-			value: int64(9223372036854775807),
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, int64(9223372036854775807), retrieved)
-			},
-		},
-		{
-			name:  "Uint",
-			value: uint(42),
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, uint(42), retrieved)
-			},
-		},
-		{
-			name:  "Uint8",
-			value: uint8(255),
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, uint8(255), retrieved)
-			},
-		},
-		{
-			name:  "Uint16",
-			value: uint16(65535),
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, uint16(65535), retrieved)
-			},
-		},
-		{
-			name:  "Uint32",
-			value: uint32(4294967295),
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, uint32(4294967295), retrieved)
-			},
-		},
-		{
-			name:  "Uint64",
-			value: uint64(18446744073709551615),
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, uint64(18446744073709551615), retrieved)
-			},
-		},
-		{
-			name:  "Float32",
-			value: float32(3.14159),
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.InDelta(t, float32(3.14159), retrieved, 0.0001)
-			},
-		},
-		{
-			name:  "Float64",
-			value: 3.141592653589793,
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.InDelta(t, 3.141592653589793, retrieved, 1e-8)
-			},
-		},
-		{
-			name:  "Complex64",
-			value: complex64(3.14 + 2.71i),
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, complex64(3.14+2.71i), retrieved, 1e-8)
-			},
-		},
-		{
-			name:  "Complex128",
-			value: complex128(3.141592653589793 + 2.718281828459045i),
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, complex128(3.141592653589793+2.718281828459045i), retrieved)
-			},
-		},
-		{
-			name:  "Bool_True",
-			value: true,
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, true, retrieved)
-			},
-		},
-		{
-			name:  "Bool_False",
-			value: false,
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, false, retrieved)
-			},
-		},
-		{
-			name:  "IntSlice",
-			value: []int{1, 2, 3, 4, 5},
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, []int{1, 2, 3, 4, 5}, retrieved)
-			},
-		},
-		{
-			name:  "StringSlice",
-			value: []string{"a", "b", "c"},
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, []string{"a", "b", "c"}, retrieved)
-			},
-		},
-		{
-			name:  "ByteSlice",
-			value: []byte{1, 2, 3, 4, 5},
-			check: func(t *testing.T, retrieved interface{}) {
-				assert.Equal(t, []byte{1, 2, 3, 4, 5}, retrieved)
-			},
-		},
-		{
-			name:  "StringMap",
-			value: map[string]string{"key1": "value1", "key2": "value2"},
-			check: func(t *testing.T, retrieved interface{}) {
-				expected := map[string]string{"key1": "value1", "key2": "value2"}
-				assert.Equal(t, expected, retrieved)
-			},
-		},
-		{
-			name:  "IntMap",
-			value: map[string]int{"key1": 1, "key2": 2},
-			check: func(t *testing.T, retrieved interface{}) {
-				expected := map[string]int{"key1": 1, "key2": 2}
-				assert.Equal(t, expected, retrieved)
-			},
-		},
-		{
-			name:  "Struct",
-			value: TestNamedStruct{Value: "test", ID: 123, Float: 3.14, Bool: true},
-			check: func(t *testing.T, retrieved interface{}) {
-				expected := TestNamedStruct{Value: "test", ID: 123, Float: 3.14, Bool: true}
-				assert.Equal(t, expected, retrieved)
-			},
-		},
+		{name: "String", value: "test string"},
+		{name: "Int", value: 42},
+		{name: "Int8", value: int8(127)},
+		{name: "Int16", value: int16(32767)},
+		{name: "Int32", value: int32(2147483647)},
+		{name: "Int64", value: int64(9223372036854775807)},
+		{name: "Uint", value: uint(42)},
+		{name: "Uint8", value: uint8(255)},
+		{name: "Uint16", value: uint16(65535)},
+		{name: "Uint32", value: uint32(4294967295)},
+		{name: "Uint64", value: uint64(18446744073709551615)},
+		{name: "Float32", value: float32(3.14159), delta: 0.0001},
+		{name: "Float64", value: 3.141592653589793, delta: 1e-8},
+		{name: "Complex64", value: complex64(3.14 + 2.71i)},
+		{name: "Complex128", value: complex128(3.141592653589793 + 2.718281828459045i)},
+		{name: "Bool_True", value: true},
+		{name: "Bool_False", value: false},
+		{name: "IntSlice", value: []int{1, 2, 3, 4, 5}},
+		{name: "StringSlice", value: []string{"a", "b", "c"}},
+		{name: "ByteSlice", value: []byte{1, 2, 3, 4, 5}},
+		{name: "StringMap", value: map[string]string{"key1": "value1", "key2": "value2"}},
+		{name: "IntMap", value: map[string]int{"key1": 1, "key2": 2}},
+		{name: "Struct", value: TestNamedStruct{Value: "test", ID: 123, Float: 3.14, Bool: true}},
 	}
 
 	for _, tc := range testCases {
@@ -385,7 +243,11 @@ func TestMemoryJsonMap_DataTypes(t *testing.T) {
 			assert.True(t, found)
 
 			retrieved := reflect.ValueOf(retrievePtr).Elem().Interface()
-			tc.check(t, retrieved)
+			if tc.delta > 0 {
+				assert.InDelta(t, tc.value, retrieved, tc.delta)
+			} else {
+				assert.Equal(t, tc.value, retrieved)
+			}
 		})
 	}
 }
@@ -891,8 +753,8 @@ func TestMemoryJsonMap_ErrorTypes(t *testing.T) {
 		var validationErr1 *ValidationError
 
 		require.ErrorAs(t, nilErr, &encodingErr)
-		assert.False(t, errors.As(nilErr, &typeMismatchErr1))
-		assert.False(t, errors.As(nilErr, &validationErr1))
+		assert.NotErrorAs(t, nilErr, &typeMismatchErr1)
+		assert.NotErrorAs(t, nilErr, &validationErr1)
 
 		// Check type mismatch error type
 		var encodingErr2 *EncodingError
@@ -900,7 +762,7 @@ func TestMemoryJsonMap_ErrorTypes(t *testing.T) {
 		var validationErr2 *ValidationError
 
 		require.ErrorAs(t, typeMismatchErr, &typeMismatchErr2)
-		assert.False(t, errors.As(typeMismatchErr, &encodingErr2))
-		assert.False(t, errors.As(typeMismatchErr, &validationErr2))
+		assert.NotErrorAs(t, typeMismatchErr, &encodingErr2)
+		assert.NotErrorAs(t, typeMismatchErr, &validationErr2)
 	})
 }

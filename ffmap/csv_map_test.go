@@ -2,7 +2,6 @@ package ffmap
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+//nolint:thelper // t can be nil when called from benchmarks
 func makeTestMap(t *testing.T) (string, *KeyValueCSV) {
 	if t != nil {
 		t.Helper()
@@ -2836,8 +2836,8 @@ func TestKeyValueCSV_ErrorTypes(t *testing.T) {
 		var valErr1 *ValidationError
 
 		require.ErrorAs(t, encodingErr, &encErr)
-		assert.False(t, errors.As(encodingErr, &typeErr1))
-		assert.False(t, errors.As(encodingErr, &valErr1))
+		assert.NotErrorAs(t, encodingErr, &typeErr1)
+		assert.NotErrorAs(t, encodingErr, &valErr1)
 
 		// Test validation error
 		validationErr := SetMapValues(nil, map[string]string{"key": "value"})
@@ -2846,7 +2846,7 @@ func TestKeyValueCSV_ErrorTypes(t *testing.T) {
 		var valErr2 *ValidationError
 
 		require.ErrorAs(t, validationErr, &valErr2)
-		assert.False(t, errors.As(validationErr, &encErr2))
-		assert.False(t, errors.As(validationErr, &typeErr2))
+		assert.NotErrorAs(t, validationErr, &encErr2)
+		assert.NotErrorAs(t, validationErr, &typeErr2)
 	})
 }
