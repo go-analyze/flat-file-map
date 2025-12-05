@@ -377,11 +377,12 @@ func decodeValue(dataType int, encodedValue string, value interface{}) error {
 		if ve.Kind() != reflect.Bool {
 			return &TypeMismatchError{Message: fmt.Sprintf("expected bool type but got %v", ve.Kind())}
 		}
-		if encodedValue == "t" {
+		switch encodedValue {
+		case "t":
 			ve.SetBool(true)
-		} else if encodedValue == "f" {
+		case "f":
 			ve.SetBool(false)
-		} else {
+		default:
 			return &ValidationError{Message: "unexpected encoded bool value: " + encodedValue}
 		}
 	case dataArraySlice, dataMap, dataStructJson:

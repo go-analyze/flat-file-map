@@ -48,7 +48,7 @@ func addDefaultRecords(m *KeyValueCSV) {
 
 func BenchmarkCSVLoad(b *testing.B) {
 	tmpFile, mOrig := makeTestMap(nil)
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 	addDefaultRecords(mOrig)
 	var byteWriter bytes.Buffer
 	if err := mOrig.commitTo(&byteWriter); err != nil {
@@ -67,7 +67,7 @@ func BenchmarkCSVLoad(b *testing.B) {
 
 func BenchmarkCSVDeleteAllSet(b *testing.B) {
 	tmpFile, mOrig := makeTestMap(nil)
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	for i := 0; i < b.N; i++ {
 		mOrig.DeleteAll()
@@ -77,7 +77,7 @@ func BenchmarkCSVDeleteAllSet(b *testing.B) {
 
 func BenchmarkCSVGet(b *testing.B) {
 	tmpFile, mOrig := makeTestMap(nil)
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 	addDefaultRecords(mOrig)
 
 	for i := 0; i < b.N; i++ {
@@ -112,7 +112,7 @@ func (w *noOpWriter) Write(b []byte) (n int, err error) {
 
 func BenchmarkCSVCommit(b *testing.B) {
 	tmpFile, mOrig := makeTestMap(nil)
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 	addDefaultRecords(mOrig)
 	writer := &noOpWriter{}
 
