@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/go-analyze/bulk"
 )
 
 // memoryJsonMap provides a primarily in-memory key-value map.
@@ -494,7 +496,7 @@ func (kv *memoryJsonMap) KeySet() []string {
 	kv.rwLock.RLock()
 	defer kv.rwLock.RUnlock()
 
-	return mapKeys(kv.data)
+	return bulk.MapKeysSlice(kv.data)
 }
 
 // Commit is a no-op for memoryJsonMap.

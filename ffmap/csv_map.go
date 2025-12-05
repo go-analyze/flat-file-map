@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/go-analyze/bulk"
 )
 
 // KeyValueCSV provides a primarily in-memory key-value map with the ability to load and commit the contents to disk.
@@ -202,7 +204,7 @@ func (kv *KeyValueCSV) Commit() error {
 // commitTo writes all current key-value pairs to the provided writer, sorted by data type then key.
 func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 	// sort keys so output is in a consistent order
-	keys := mapKeys(kv.memoryMap.data)
+	keys := bulk.MapKeysSlice(kv.memoryMap.data)
 	slices.SortFunc(keys, func(a, b string) int {
 		dataVal1 := kv.memoryMap.data[a]
 		dataVal2 := kv.memoryMap.data[b]
@@ -243,7 +245,7 @@ func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 					if err := json.Unmarshal([]byte(val2.value), &structValue); err != nil {
 						return err
 					}
-					allStructFieldNames = append(allStructFieldNames, mapKeys(structValue))
+					allStructFieldNames = append(allStructFieldNames, bulk.MapKeysSlice(structValue))
 					// track the field type, needed to fill in default values for structs which had default values omitted
 					for name := range structValue {
 						fieldType := reflect.ValueOf(structValue[name]).Kind()
