@@ -62,5 +62,5 @@ func main() {
 
 This module is dedicated to a small and straightforward purpose, and because of that we are already finding stability with our Go API. It is still possible we may need to have future changes to the Go API or file format, potentially leading to compatibility issues with file formats currently in use. However we believe we have a solid foundation established that will be easy to support long term.
 
-The release of version `1.0` will signify our confidence in the module's implementation. From this version onward, we commit to ensuring file format compatibility and API stability.
+This project follows [ZeroVer](https://0ver.org) versioning, and will never release a v1. Instead, middle digit increases (e.g., `v0.1.X` to `v0.2.0`) indicate breaking changes such as Go version updates, API updates, or file format changes (all format versions still supported). Patch version increases (e.g., `v0.2.0` to `v0.2.1`) indicate bug fixes and feature expansions, which are generally safe to apply.
 
