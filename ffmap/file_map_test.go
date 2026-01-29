@@ -124,4 +124,121 @@ func TestTypedFFMap(t *testing.T) {
 		assert.False(t, tfm.ContainsKey(key))
 		assert.Equal(t, 0, tfm.Size())
 	})
+	t.Run("All", func(t *testing.T) {
+		t.Parallel()
+
+		t.Run("empty_map", func(t *testing.T) {
+			tfm := NewTypedFFMap[string](NewMemoryMap())
+
+			var count int
+			for range tfm.All() {
+				count++
+			}
+			assert.Equal(t, 0, count)
+		})
+		t.Run("iterates_all_pairs", func(t *testing.T) {
+			tfm := NewTypedFFMap[string](NewMemoryMap())
+
+			expected := map[string]string{"a": "1", "b": "2", "c": "3"}
+			require.NoError(t, tfm.SetMapValues(expected))
+
+			result := make(map[string]string)
+			for k, v := range tfm.All() {
+				result[k] = v
+			}
+			assert.Equal(t, expected, result)
+		})
+		t.Run("early_termination", func(t *testing.T) {
+			tfm := NewTypedFFMap[string](NewMemoryMap())
+
+			require.NoError(t, tfm.SetMapValues(map[string]string{"a": "1", "b": "2", "c": "3"}))
+
+			var count int
+			for range tfm.All() {
+				count++
+				break
+			}
+			assert.Equal(t, 1, count)
+		})
+		t.Run("delete_during_iteration", func(t *testing.T) {
+			tfm := NewTypedFFMap[int](NewMemoryMap())
+			require.NoError(t, tfm.SetMapValues(map[string]int{"a": 1, "b": 2, "c": 3, "d": 4}))
+
+			var count int
+			for k := range tfm.All() {
+				tfm.Delete(k)
+				tfm.Delete("b") // ensure b is not considered as iterated
+
+				if k == "b" {
+					if count == 0 {
+						continue // first record, just ignore so not counted
+					} else {
+						assert.Fail(t, "expected b to be deleted")
+					}
+				}
+
+				count++
+			}
+			assert.Equal(t, 3, count)
+			assert.Equal(t, 0, tfm.Size())
+		})
+	})
+	t.Run("Values", func(t *testing.T) {
+		t.Parallel()
+
+		t.Run("empty_map", func(t *testing.T) {
+			tfm := NewTypedFFMap[int](NewMemoryMap())
+
+			var count int
+			for range tfm.Values() {
+				count++
+			}
+			assert.Equal(t, 0, count)
+		})
+		t.Run("iterates_all_values", func(t *testing.T) {
+			tfm := NewTypedFFMap[int](NewMemoryMap())
+
+			require.NoError(t, tfm.SetMapValues(map[string]int{"a": 1, "b": 2, "c": 3, "d": 1}))
+
+			var sum int
+			for v := range tfm.Values() {
+				sum += v
+			}
+			assert.Equal(t, 7, sum)
+		})
+		t.Run("early_termination", func(t *testing.T) {
+			tfm := NewTypedFFMap[int](NewMemoryMap())
+
+			require.NoError(t, tfm.SetMapValues(map[string]int{"a": 1, "b": 2, "c": 3}))
+
+			var count int
+			for range tfm.Values() {
+				count++
+				break
+			}
+			assert.Equal(t, 1, count)
+		})
+		t.Run("delete_during_iteration", func(t *testing.T) {
+			tfm := NewTypedFFMap[int](NewMemoryMap())
+			const skipValue = 2
+			require.NoError(t, tfm.SetMapValues(map[string]int{"a": 1, "b": skipValue, "c": skipValue, "d": 4}))
+
+			var count int
+			for val := range tfm.Values() {
+				if count == 0 {
+					// delete records that we don't want to iterate, 2 needed in case we already are on one of them
+					tfm.Delete("b")
+					tfm.Delete("c")
+					count = 2 // record deleted to capture as skipped
+					if val == skipValue {
+						continue // got skip record to start
+					}
+				}
+				count++
+				assert.NotEqual(t, skipValue, val)
+			}
+			assert.Equal(t, 4, count)
+			assert.Equal(t, 2, tfm.Size())
+		})
+	})
 }

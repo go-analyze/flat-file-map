@@ -4,6 +4,7 @@ package ffmap
 
 import (
 	"errors"
+	"iter"
 )
 
 // EncodingError indicates that a value cannot be encoded for storage.
@@ -190,6 +191,34 @@ func (tfm *TypedFFMap[T]) ContainsKey(key string) bool {
 // KeySet will return all the keys stored within the map.
 func (tfm *TypedFFMap[T]) KeySet() []string {
 	return tfm.ffm.KeySet()
+}
+
+// All returns an iterator over all key-value pairs. Concurrent modification is safe,
+// however updates may or may not be reflected in the iteration.
+func (tfm *TypedFFMap[T]) All() iter.Seq2[string, T] {
+	return func(yield func(string, T) bool) {
+		for _, key := range tfm.ffm.KeySet() {
+			if val, ok := tfm.Get(key); ok {
+				if !yield(key, val) {
+					return
+				}
+			} // else skip, deleted or different type
+		}
+	}
+}
+
+// Values returns an iterator over all values. Concurrent modification is safe,
+// however updates may or may not be reflected in the iteration.
+func (tfm *TypedFFMap[T]) Values() iter.Seq[T] {
+	return func(yield func(T) bool) {
+		for _, key := range tfm.ffm.KeySet() {
+			if val, ok := tfm.Get(key); ok {
+				if !yield(val) {
+					return
+				}
+			} // else skip, deleted or different type
+		}
+	}
 }
 
 // Set stores the provided value into the map. If a value already exists, it will be replaced with the new value.

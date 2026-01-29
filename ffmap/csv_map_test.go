@@ -2683,13 +2683,14 @@ func FuzzLoadRecords(f *testing.F) {
 	f.Add("9,AAAA1,[\"ZZ\",\"XX\"]\n9,AAAA2,[\"ZZ\",\"XX\"]")
 
 	f.Fuzz(func(t *testing.T, encodedLines string) {
-		var records [][]string
-		records = append(records, []string{currentFileVersion})
-		for _, line := range strings.Split(encodedLines, "\n") {
+		lines := strings.Split(encodedLines, "\n")
+		records := make([][]string, 1, len(lines)+1)
+		records[0] = []string{currentFileVersion}
+		for _, line := range lines {
 			lineSlice := strings.Split(line, ",")
 			if !strings.HasPrefix(line, "0,") { // only three values expected
-				var recombinedLine []string
-				recombinedLine = append(recombinedLine, lineSlice[0])
+				recombinedLine := make([]string, 1, 3)
+				recombinedLine[0] = lineSlice[0]
 				if len(lineSlice) > 1 {
 					recombinedLine = append(recombinedLine, lineSlice[1])
 				}
