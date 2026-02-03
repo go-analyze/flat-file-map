@@ -651,6 +651,175 @@ func TestMemoryJsonMap_StripZeroFields(t *testing.T) {
 	})
 }
 
+// Named type aliases for testing encoding of custom types based on primitives
+type testNamedByte uint8
+type testNamedInt int
+type testNamedString string
+type testNamedFloat float64
+type testNamedBool bool
+
+func TestMemoryJsonMap_NamedTypes(t *testing.T) {
+	t.Parallel()
+
+	t.Run("NamedUint8", func(t *testing.T) {
+		t.Parallel()
+		m := NewMemoryMap()
+
+		var original testNamedByte = 42
+		require.NoError(t, m.Set("named_byte", original))
+
+		var retrieved testNamedByte
+		found, err := m.Get("named_byte", &retrieved)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, original, retrieved)
+	})
+
+	t.Run("NamedInt", func(t *testing.T) {
+		t.Parallel()
+		m := NewMemoryMap()
+
+		var original testNamedInt = -100
+		require.NoError(t, m.Set("named_int", original))
+
+		var retrieved testNamedInt
+		found, err := m.Get("named_int", &retrieved)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, original, retrieved)
+	})
+
+	t.Run("NamedString", func(t *testing.T) {
+		t.Parallel()
+		m := NewMemoryMap()
+
+		var original testNamedString = "test"
+		require.NoError(t, m.Set("named_string", original))
+
+		var retrieved testNamedString
+		found, err := m.Get("named_string", &retrieved)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, original, retrieved)
+	})
+
+	t.Run("NamedFloat", func(t *testing.T) {
+		t.Parallel()
+		m := NewMemoryMap()
+
+		var original testNamedFloat = 3.14159
+		require.NoError(t, m.Set("named_float", original))
+
+		var retrieved testNamedFloat
+		found, err := m.Get("named_float", &retrieved)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.InDelta(t, float64(original), float64(retrieved), 1e-8)
+	})
+
+	t.Run("NamedBool", func(t *testing.T) {
+		t.Parallel()
+		m := NewMemoryMap()
+
+		var original testNamedBool = true
+		require.NoError(t, m.Set("named_bool", original))
+
+		var retrieved testNamedBool
+		found, err := m.Get("named_bool", &retrieved)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, original, retrieved)
+	})
+}
+
+func TestMemoryJsonMap_PointerPrimitives(t *testing.T) {
+	t.Parallel()
+
+	t.Run("PointerUint8", func(t *testing.T) {
+		t.Parallel()
+		m := NewMemoryMap()
+
+		val := uint8(42)
+		require.NoError(t, m.Set("ptr_uint8", &val))
+
+		var retrieved uint8
+		found, err := m.Get("ptr_uint8", &retrieved)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, val, retrieved)
+	})
+
+	t.Run("PointerInt", func(t *testing.T) {
+		t.Parallel()
+		m := NewMemoryMap()
+
+		val := -100
+		require.NoError(t, m.Set("ptr_int", &val))
+
+		var retrieved int
+		found, err := m.Get("ptr_int", &retrieved)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, val, retrieved)
+	})
+
+	t.Run("PointerString", func(t *testing.T) {
+		t.Parallel()
+		m := NewMemoryMap()
+
+		val := "test"
+		require.NoError(t, m.Set("ptr_string", &val))
+
+		var retrieved string
+		found, err := m.Get("ptr_string", &retrieved)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, val, retrieved)
+	})
+
+	t.Run("PointerFloat64", func(t *testing.T) {
+		t.Parallel()
+		m := NewMemoryMap()
+
+		val := 3.14159
+		require.NoError(t, m.Set("ptr_float", &val))
+
+		var retrieved float64
+		found, err := m.Get("ptr_float", &retrieved)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.InDelta(t, val, retrieved, 1e-8)
+	})
+
+	t.Run("PointerBool", func(t *testing.T) {
+		t.Parallel()
+		m := NewMemoryMap()
+
+		val := true
+		require.NoError(t, m.Set("ptr_bool", &val))
+
+		var retrieved bool
+		found, err := m.Get("ptr_bool", &retrieved)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, val, retrieved)
+	})
+}
+
+func TestMemoryJsonMap_UnsupportedType(t *testing.T) {
+	t.Parallel()
+	m := NewMemoryMap()
+
+	// Channels and functions are not supported
+	ch := make(chan int)
+	err := m.Set("channel", ch)
+	require.Error(t, err)
+
+	var encodingErr *EncodingError
+	require.ErrorAs(t, err, &encodingErr)
+	assert.Contains(t, encodingErr.Message, "unsupported type")
+}
+
 func TestMemoryJsonMap_ErrorTypes(t *testing.T) {
 	t.Run("EncodingError_NilValue", func(t *testing.T) {
 		t.Parallel()

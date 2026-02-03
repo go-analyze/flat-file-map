@@ -105,7 +105,35 @@ func encodeValue(value interface{}) (*dataItem, error) {
 			dataType = dataArraySlice
 		case reflect.Map:
 			dataType = dataMap
-		default:
+		case reflect.String:
+			dataType = dataString
+			strVal = val.String()
+			return &dataItem{dataType: dataType, structId: structId, value: strVal}, nil
+		case reflect.Bool:
+			dataType = dataBool
+			if val.Bool() {
+				strVal = "t"
+			} else {
+				strVal = "f"
+			}
+			return &dataItem{dataType: dataType, structId: structId, value: strVal}, nil
+		case reflect.Float32, reflect.Float64:
+			dataType = dataFloat
+			strVal = strconv.FormatFloat(val.Float(), 'f', -1, 64)
+			return &dataItem{dataType: dataType, structId: structId, value: strVal}, nil
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			dataType = dataInt
+			strVal = strconv.FormatInt(val.Int(), 10)
+			return &dataItem{dataType: dataType, structId: structId, value: strVal}, nil
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			dataType = dataUint
+			strVal = strconv.FormatUint(val.Uint(), 10)
+			return &dataItem{dataType: dataType, structId: structId, value: strVal}, nil
+		case reflect.Complex64, reflect.Complex128:
+			dataType = dataComplexNum
+			strVal = fmt.Sprintf("%v", val.Complex())
+			return &dataItem{dataType: dataType, structId: structId, value: strVal}, nil
+		case reflect.Struct:
 			dataType = dataStructJson
 			// this id is only used for comparison but must remain consistent for a given file version
 			// We have to consider the field names so that don't mix structs which have had field updates between versions
@@ -118,6 +146,8 @@ func encodeValue(value interface{}) (*dataItem, error) {
 				crc32q := crc32.MakeTable(crc32.Castagnoli)
 				structId += "-" + strconv.FormatUint(uint64(crc32.Checksum(combinedFieldName.Bytes(), crc32q)), 36)
 			}
+		default:
+			return nil, &EncodingError{Value: value, Message: fmt.Sprintf("unsupported type: %v", val.Kind())}
 		}
 		jsonBytes, err := json.Marshal(stripZeroFields(val))
 		if err != nil {
