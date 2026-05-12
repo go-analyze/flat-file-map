@@ -150,14 +150,14 @@ var stringReturnFunc = func(str string) string { // used in test cases where the
 }
 
 func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
-	t.Run("OpenEmpty", func(t *testing.T) {
+	t.Run("open_empty", func(t *testing.T) {
 		t.Parallel()
 		_, m := makeTestMap(t)
 
 		assert.Equal(t, 0, m.Size())
 	})
 
-	t.Run("OpenMissing", func(t *testing.T) {
+	t.Run("open_missing", func(t *testing.T) {
 		t.Parallel()
 		tmpfile, err := os.CreateTemp("", "testm.*.csv")
 		require.NoError(t, err)
@@ -168,7 +168,7 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		assert.Equal(t, 0, m.Size())
 	})
 
-	t.Run("SaveAndLoadMaps", func(t *testing.T) {
+	t.Run("save_load_strings", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
 
@@ -193,7 +193,7 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		}
 	})
 
-	t.Run("SaveAndLoadNamedStruct", func(t *testing.T) {
+	t.Run("save_load_named_struct", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
 
@@ -218,7 +218,7 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		}
 	})
 
-	t.Run("SaveAndLoadEmbeddedStruct", func(t *testing.T) {
+	t.Run("save_load_embedded_struct", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
 
@@ -247,7 +247,7 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		}
 	})
 
-	t.Run("SaveAndLoadNestedStruct", func(t *testing.T) {
+	t.Run("save_load_nested_struct", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
 
@@ -276,7 +276,7 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		}
 	})
 
-	t.Run("SaveAndLoadDeepNestedStruct", func(t *testing.T) {
+	t.Run("save_load_deep_nested", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
 
@@ -322,7 +322,7 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		}
 	})
 
-	t.Run("SaveAndLoadAnyStructMixedTypes", func(t *testing.T) {
+	t.Run("save_load_any_struct_mixed", func(t *testing.T) {
 		tmpFile, m := makeTestMap(t)
 
 		values := map[string]TestAnyStruct{
@@ -346,7 +346,7 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		}
 	})
 
-	t.Run("SaveAndLoadCustomJsonStruct", func(t *testing.T) {
+	t.Run("save_load_custom_json", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
 
@@ -375,7 +375,7 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		}
 	})
 
-	t.Run("SaveAndLoadDeeplyNestedMapStruct", func(t *testing.T) {
+	t.Run("save_load_deep_nested_map", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
 
@@ -406,7 +406,7 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		}
 	})
 
-	t.Run("CommitOrderString", func(t *testing.T) {
+	t.Run("commit_order_string", func(t *testing.T) {
 		t.Parallel()
 		tmpFile1, m1 := makeTestMap(t)
 		tmpFile2, m2 := makeTestMap(t)
@@ -428,7 +428,7 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		assert.Equal(t, string(file1Content), string(file2Content))
 	})
 
-	t.Run("CommitOrderMixed", func(t *testing.T) {
+	t.Run("commit_order_mixed", func(t *testing.T) {
 		t.Parallel()
 		tmpFile1, m1 := makeTestMap(t)
 		tmpFile2, m2 := makeTestMap(t)
@@ -460,7 +460,7 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		assert.Equal(t, string(file1Content), string(file2Content))
 	})
 
-	t.Run("SaveAndLoadAllTypes", func(t *testing.T) {
+	t.Run("save_load_all_types", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
 
@@ -514,7 +514,7 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		}
 	})
 
-	t.Run("CommitModTracking", func(t *testing.T) {
+	t.Run("commit_mod_tracking", func(t *testing.T) {
 		t.Parallel()
 		_, m := makeTestMap(t)
 
@@ -526,7 +526,8 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		require.NoError(t, m.Commit())
 		assert.Equal(t, m.memoryMap.modCount, m.commitMod)
 	})
-	t.Run("CommitIgnored", func(t *testing.T) {
+
+	t.Run("commit_no_op", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, m := makeTestMap(t)
 
@@ -539,7 +540,7 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		assert.NoFileExists(t, tmpFile)
 	})
 
-	t.Run("SaveAndLoadAllZeroStruct", func(t *testing.T) {
+	t.Run("save_load_zero_struct", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
 
@@ -557,7 +558,250 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		assert.True(t, found)
 		assert.Equal(t, value, actualValue)
 	})
-	t.Run("SaveAndLoadCustomMarshaler", func(t *testing.T) {
+
+	t.Run("reload_preserves_single_struct", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, mOrig := makeTestMap(t)
+
+		// single-instance struct of one type plus multiple-instance of another type
+		singleValue := TestNamedStruct{Value: "single", ID: 42, Float: 3.14, Bool: true}
+		multi1 := TestStructWithSlice{Values: []TestNamedStruct{{Value: "m1", ID: 1}}}
+		multi2 := TestStructWithSlice{Values: []TestNamedStruct{{Value: "m2", ID: 2}}}
+		require.NoError(t, mOrig.Set("solo", singleValue))
+		require.NoError(t, mOrig.Set("multi1", multi1))
+		require.NoError(t, mOrig.Set("multi2", multi2))
+		require.NoError(t, mOrig.Commit())
+
+		// reload from disk (loses structId on the single-instance struct)
+		reloaded, err := OpenCSV(tmpFile)
+		require.NoError(t, err)
+
+		var afterLoad TestNamedStruct
+		found, err := reloaded.Get("solo", &afterLoad)
+		require.NoError(t, err)
+		require.True(t, found)
+		require.Equal(t, singleValue, afterLoad)
+
+		// mutate the multi entries only, then commit (no Set on "solo")
+		require.NoError(t, reloaded.Set("multi1", TestStructWithSlice{Values: []TestNamedStruct{{Value: "m1b", ID: 10}}}))
+		require.NoError(t, reloaded.Set("multi2", TestStructWithSlice{Values: []TestNamedStruct{{Value: "m2b", ID: 20}}}))
+		require.NoError(t, reloaded.Commit())
+
+		// reload and verify the unmodified single-instance entry is intact
+		final, err := OpenReadOnlyCSV(tmpFile)
+		require.NoError(t, err)
+
+		var afterCommit TestNamedStruct
+		found, err = final.Get("solo", &afterCommit)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, singleValue, afterCommit)
+	})
+
+	t.Run("reload_preserves_multiple_singles", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, mOrig := makeTestMap(t)
+
+		// two single-instance struct values of different types
+		named := TestNamedStruct{Value: "named", ID: 7}
+		nested := TestNestedStruct{Inner: TestNamedStruct{Value: "inner", ID: 8}}
+		require.NoError(t, mOrig.Set("k:named", named))
+		require.NoError(t, mOrig.Set("k:nested", nested))
+		require.NoError(t, mOrig.Set("k:str", "primitive"))
+		require.NoError(t, mOrig.Commit())
+
+		reloaded, err := OpenCSV(tmpFile)
+		require.NoError(t, err)
+
+		// mutate only the primitive and commit
+		require.NoError(t, reloaded.Set("k:str", "primitive-2"))
+		require.NoError(t, reloaded.Commit())
+
+		final, err := OpenReadOnlyCSV(tmpFile)
+		require.NoError(t, err)
+
+		var gotNamed TestNamedStruct
+		found, err := final.Get("k:named", &gotNamed)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, named, gotNamed)
+
+		var gotNested TestNestedStruct
+		found, err = final.Get("k:nested", &gotNested)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, nested, gotNested)
+	})
+
+	t.Run("reload_preserves_empty_struct", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, mOrig := makeTestMap(t)
+
+		// struct whose stripped JSON is {} exercises the empty-field-set synthesized-id path
+		empty := TestNamedStruct{}
+		require.NoError(t, mOrig.Set("k:empty", empty))
+		require.NoError(t, mOrig.Set("k:str", "primitive"))
+		require.NoError(t, mOrig.Commit())
+
+		reloaded, err := OpenCSV(tmpFile)
+		require.NoError(t, err)
+
+		require.NoError(t, reloaded.Set("k:str", "primitive-2"))
+		require.NoError(t, reloaded.Commit())
+
+		final, err := OpenReadOnlyCSV(tmpFile)
+		require.NoError(t, err)
+
+		var got TestNamedStruct
+		found, err := final.Get("k:empty", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, empty, got)
+	})
+
+	t.Run("reload_byte_stable_unchanged", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, mOrig := makeTestMap(t)
+
+		singleton := TestNamedStruct{Value: "stable", ID: 7, Bool: true}
+		require.NoError(t, mOrig.Set("k:struct", singleton))
+		require.NoError(t, mOrig.Set("k:str", "primitive"))
+		require.NoError(t, mOrig.Set("k:int", 42))
+		require.NoError(t, mOrig.Commit())
+
+		originalBytes, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+		// locate the singleton's type-2 line so we can assert it is preserved verbatim
+		var singletonLine string
+		for _, line := range strings.Split(string(originalBytes), "\n") {
+			if strings.HasPrefix(line, "2,k:struct,") {
+				singletonLine = line
+				break
+			}
+		}
+		require.NotEmpty(t, singletonLine, "expected a type-2 line for the singleton in: %s", string(originalBytes))
+
+		reloaded, err := OpenCSV(tmpFile)
+		require.NoError(t, err)
+
+		require.NoError(t, reloaded.Set("k:str", "primitive-changed"))
+		require.NoError(t, reloaded.Commit())
+
+		updatedBytes, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+		assert.Contains(t, string(updatedBytes), singletonLine,
+			"unchanged singleton line should appear verbatim after reload+commit. before:\n%s\nafter:\n%s",
+			string(originalBytes), string(updatedBytes))
+
+		final, err := OpenReadOnlyCSV(tmpFile)
+		require.NoError(t, err)
+		var got TestNamedStruct
+		found, err := final.Get("k:struct", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, singleton, got)
+	})
+
+	t.Run("mixed_singleton_and_slice", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, mOrig := makeTestMap(t)
+
+		singleton := TestNamedStruct{Value: "solo", ID: 1}
+		slice := []TestNamedStruct{
+			{Value: "a", ID: 10},
+			{Value: "b", ID: 20},
+		}
+		require.NoError(t, mOrig.Set("k:singleton", singleton))
+		require.NoError(t, mOrig.Set("k:slice", slice))
+		require.NoError(t, mOrig.Commit())
+
+		// locks the pre-slice-optimization file size; this is expected to drop
+		// when the future type-12/type-11 exploded slice encoding lands.
+		verifyFileSize(t, tmpFile, 224)
+
+		reloaded, err := OpenReadOnlyCSV(tmpFile)
+		require.NoError(t, err)
+
+		var gotSingleton TestNamedStruct
+		found, err := reloaded.Get("k:singleton", &gotSingleton)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, singleton, gotSingleton)
+
+		var gotSlice []TestNamedStruct
+		found, err = reloaded.Get("k:slice", &gotSlice)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, slice, gotSlice)
+	})
+
+	t.Run("two_slices_different_values", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, mOrig := makeTestMap(t)
+
+		sliceA := []TestNamedStruct{
+			{Value: "a0", ID: 1, Bool: true},
+			{Value: "a1", ID: 2},
+			{Value: "a2", ID: 3, Float: 1.5},
+		}
+		sliceB := []TestNamedStruct{
+			{Value: "b0", ID: 100},
+			{Value: "b1", ID: 200, Bool: true},
+		}
+		require.NoError(t, mOrig.Set("k:sliceA", sliceA))
+		require.NoError(t, mOrig.Set("k:sliceB", sliceB))
+		require.NoError(t, mOrig.Commit())
+
+		reloaded, err := OpenReadOnlyCSV(tmpFile)
+		require.NoError(t, err)
+
+		var gotA []TestNamedStruct
+		found, err := reloaded.Get("k:sliceA", &gotA)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, sliceA, gotA)
+
+		var gotB []TestNamedStruct
+		found, err = reloaded.Get("k:sliceB", &gotB)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, sliceB, gotB)
+	})
+
+	t.Run("two_slices_divergent_fields", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, mOrig := makeTestMap(t)
+
+		// sliceA populates Value+ID; sliceB populates Value+Float+Bool
+		sliceA := []TestNamedStruct{
+			{Value: "a0", ID: 11},
+			{Value: "a1", ID: 22},
+		}
+		sliceB := []TestNamedStruct{
+			{Value: "b0", Float: 1.25, Bool: true},
+			{Value: "b1", Float: 2.5},
+		}
+		require.NoError(t, mOrig.Set("k:sliceA", sliceA))
+		require.NoError(t, mOrig.Set("k:sliceB", sliceB))
+		require.NoError(t, mOrig.Commit())
+
+		reloaded, err := OpenReadOnlyCSV(tmpFile)
+		require.NoError(t, err)
+
+		var gotA []TestNamedStruct
+		found, err := reloaded.Get("k:sliceA", &gotA)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, sliceA, gotA)
+
+		var gotB []TestNamedStruct
+		found, err = reloaded.Get("k:sliceB", &gotB)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, sliceB, gotB)
+	})
+
+	t.Run("save_load_custom_marshaler", func(t *testing.T) {
 		t.Parallel()
 		tmpFile, mOrig := makeTestMap(t)
 
@@ -586,7 +830,7 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 }
 
 func TestKeyValueCSV_RejectSymlinks(t *testing.T) {
-	t.Run("RejectSymlinkOnOpen", func(t *testing.T) {
+	t.Run("on_open", func(t *testing.T) {
 		t.Parallel()
 
 		// Create a real file
@@ -610,7 +854,7 @@ func TestKeyValueCSV_RejectSymlinks(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("RejectSymlinkOnCommit", func(t *testing.T) {
+	t.Run("on_commit", func(t *testing.T) {
 		t.Parallel()
 
 		// Create a temporary file for the map
@@ -662,92 +906,92 @@ func TestKeyValueCSV_EncodeValueType(t *testing.T) {
 		expectedDataType int
 	}{
 		{
-			name:             "String",
+			name:             "string",
 			value:            "testString",
 			expectedDataType: dataString,
 		},
 		{
-			name:             "Bool",
+			name:             "bool",
 			value:            true,
 			expectedDataType: dataBool,
 		},
 		{
-			name:             "Float32",
+			name:             "float32",
 			value:            float32(3.14),
 			expectedDataType: dataFloat,
 		},
 		{
-			name:             "Float64",
+			name:             "float64",
 			value:            float64(3.1415),
 			expectedDataType: dataFloat,
 		},
 		{
-			name:             "Int",
+			name:             "int",
 			value:            int(42),
 			expectedDataType: dataInt,
 		},
 		{
-			name:             "Int8",
+			name:             "int8",
 			value:            int8(8),
 			expectedDataType: dataInt,
 		},
 		{
-			name:             "Int16",
+			name:             "int16",
 			value:            int16(16),
 			expectedDataType: dataInt,
 		},
 		{
-			name:             "Int32",
+			name:             "int32",
 			value:            int32(32),
 			expectedDataType: dataInt,
 		},
 		{
-			name:             "Int64",
+			name:             "int64",
 			value:            int64(64),
 			expectedDataType: dataInt,
 		},
 		{
-			name:             "Uint",
+			name:             "uint",
 			value:            uint(1),
 			expectedDataType: dataUint,
 		},
 		{
-			name:             "Uint8",
+			name:             "uint8",
 			value:            uint8(8),
 			expectedDataType: dataUint,
 		},
 		{
-			name:             "Uint16",
+			name:             "uint16",
 			value:            uint16(16),
 			expectedDataType: dataUint,
 		},
 		{
-			name:             "Uint32",
+			name:             "uint32",
 			value:            uint32(32),
 			expectedDataType: dataUint,
 		},
 		{
-			name:             "Uint64",
+			name:             "uint64",
 			value:            uint64(64),
 			expectedDataType: dataUint,
 		},
 		{
-			name:             "Complex64",
+			name:             "complex64",
 			value:            complex64(complex(5, 6)),
 			expectedDataType: dataComplexNum,
 		},
 		{
-			name:             "Complex128",
+			name:             "complex128",
 			value:            complex128(complex(7, 8)),
 			expectedDataType: dataComplexNum,
 		},
 		{
-			name:             "CustomStruct",
+			name:             "custom_struct",
 			value:            struct{ Name string }{"Test"},
 			expectedDataType: dataStructJson,
 		},
 		{
-			name: "NamedStruct",
+			name: "named_struct",
 			value: TestNamedStruct{
 				Value: "foo",
 				ID:    123,
@@ -756,7 +1000,7 @@ func TestKeyValueCSV_EncodeValueType(t *testing.T) {
 			expectedDataType: dataStructJson,
 		},
 		{
-			name: "PointerStruct",
+			name: "pointer_struct",
 			value: TestPointerStruct{
 				S: &defaultStr,
 				I: &defaultI,
@@ -765,59 +1009,59 @@ func TestKeyValueCSV_EncodeValueType(t *testing.T) {
 			expectedDataType: dataStructJson,
 		},
 		{
-			name: "CustomJsonStruct",
+			name: "custom_json_struct",
 			value: TestCustomJsonStruct{
 				Value: "foo",
 			},
 			expectedDataType: dataStructJson,
 		},
 		{
-			name:             "Map",
+			name:             "map",
 			value:            map[string]string{"foo1": "bar1", "foo2": "bar2"},
 			expectedDataType: dataMap,
 		},
 		{
-			name:             "ByteArray",
+			name:             "byte_array",
 			value:            [4]byte{1, 2, 3, 4},
 			expectedDataType: dataArraySlice,
 		},
 		{
-			name:             "ByteSlice",
+			name:             "byte_slice",
 			value:            []byte{1, 2, 3, 4},
 			expectedDataType: dataArraySlice,
 		},
 		{
-			name:             "IntArray",
+			name:             "int_array",
 			value:            [4]int{1, 2, 3, 4},
 			expectedDataType: dataArraySlice,
 		},
 		{
-			name:             "IntSlice",
+			name:             "int_slice",
 			value:            []int{1, 2, 3, 4},
 			expectedDataType: dataArraySlice,
 		},
 		{
-			name:             "Int64Array",
+			name:             "int64_array",
 			value:            [4]int64{1000, 2000, 3000, 4000},
 			expectedDataType: dataArraySlice,
 		},
 		{
-			name:             "Int64Slice",
+			name:             "int64_slice",
 			value:            []int64{1000, 2000, 3000, 4000},
 			expectedDataType: dataArraySlice,
 		},
 		{
-			name:             "StringArray",
+			name:             "string_array",
 			value:            [2]string{"foo", "bar"},
 			expectedDataType: dataArraySlice,
 		},
 		{
-			name:             "StringSlice",
+			name:             "string_slice",
 			value:            []string{"foo", "bar"},
 			expectedDataType: dataArraySlice,
 		},
 		{
-			name: "StructSlice",
+			name: "struct_slice",
 			value: []TestNamedStruct{
 				{Value: "foo", ID: 123},
 				{Value: "bar", ID: 456},
@@ -825,57 +1069,57 @@ func TestKeyValueCSV_EncodeValueType(t *testing.T) {
 			expectedDataType: dataArraySlice,
 		},
 		{
-			name:             "Time",
+			name:             "time",
 			value:            time.Now(),
 			expectedDataType: dataStructJson,
 		},
 		{
-			name:             "MapPointer",
+			name:             "map_pointer",
 			value:            &map[string]string{"foo": "bar", "key": "value"},
 			expectedDataType: dataMap,
 		},
 		{
-			name:             "StructPointer",
+			name:             "struct_pointer",
 			value:            &TestNamedStruct{Value: "foo", ID: 123},
 			expectedDataType: dataStructJson,
 		},
 		{
-			name:             "Float32Slice",
+			name:             "float32_slice",
 			value:            []float32{1.1, 2.2, 3.3},
 			expectedDataType: dataArraySlice,
 		},
 		{
-			name:             "Float64Slice",
+			name:             "float64_slice",
 			value:            []float64{1.1, 2.2, 3.3},
 			expectedDataType: dataArraySlice,
 		},
 		{
-			name:             "UintSlice",
+			name:             "uint_slice",
 			value:            []uint{1, 2, 3, 4},
 			expectedDataType: dataArraySlice,
 		},
 		{
-			name:             "NestedIntSlice",
+			name:             "nested_int_slice",
 			value:            [][]int{{1, 2}, {3, 4}},
 			expectedDataType: dataArraySlice,
 		},
 		{
-			name:             "NestedStringSlice",
+			name:             "nested_string_slice",
 			value:            [][]string{{"a", "b"}, {"c", "d"}},
 			expectedDataType: dataArraySlice,
 		},
 		{
-			name:             "EmptySlice",
+			name:             "empty_slice",
 			value:            []int{},
 			expectedDataType: dataArraySlice,
 		},
 		{
-			name:             "EmptyArray",
+			name:             "empty_array",
 			value:            [0]int{},
 			expectedDataType: dataArraySlice,
 		},
 		{
-			name:             "PointerSlice",
+			name:             "pointer_slice",
 			value:            []*int{new(int), new(int)},
 			expectedDataType: dataArraySlice,
 		},
@@ -899,102 +1143,102 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 		getValue interface{}
 	}{
 		{
-			name:     "String",
+			name:     "string",
 			setValue: "testString",
 			getValue: new(string),
 		},
 		{
-			name:     "Bool",
+			name:     "bool",
 			setValue: true,
 			getValue: new(bool),
 		},
 		{
-			name:     "Float32",
+			name:     "float32",
 			setValue: float32(3.14),
 			getValue: new(float32),
 		},
 		{
-			name:     "Float64",
+			name:     "float64",
 			setValue: float64(3.1415),
 			getValue: new(float64),
 		},
 		{
-			name:     "Int",
+			name:     "int",
 			setValue: int(42),
 			getValue: new(int),
 		},
 		{
-			name:     "Int8",
+			name:     "int8",
 			setValue: int8(8),
 			getValue: new(int8),
 		},
 		{
-			name:     "Int16",
+			name:     "int16",
 			setValue: int16(16),
 			getValue: new(int16),
 		},
 		{
-			name:     "Int32",
+			name:     "int32",
 			setValue: int32(32),
 			getValue: new(int32),
 		},
 		{
-			name:     "Int64",
+			name:     "int64",
 			setValue: int64(64),
 			getValue: new(int64),
 		},
 		{
-			name:     "Uint",
+			name:     "uint",
 			setValue: uint(1),
 			getValue: new(uint),
 		},
 		{
-			name:     "Uint8",
+			name:     "uint8",
 			setValue: uint8(8),
 			getValue: new(uint8),
 		},
 		{
-			name:     "Uint16",
+			name:     "uint16",
 			setValue: uint16(16),
 			getValue: new(uint16),
 		},
 		{
-			name:     "Uint32",
+			name:     "uint32",
 			setValue: uint32(32),
 			getValue: new(uint32),
 		},
 		{
-			name:     "Uint64",
+			name:     "uint64",
 			setValue: uint64(64),
 			getValue: new(uint64),
 		},
 		{
-			name:     "Complex64",
+			name:     "complex64",
 			setValue: complex64(complex(5, 6)),
 			getValue: new(complex64),
 		},
 		{
-			name:     "Complex128",
+			name:     "complex128",
 			setValue: complex128(complex(7, 8)),
 			getValue: new(complex128),
 		},
 		{
-			name:     "Complex64NegImag",
+			name:     "complex64_neg_imag",
 			setValue: complex64(complex(5, -6)),
 			getValue: new(complex64),
 		},
 		{
-			name:     "Complex128Neg",
+			name:     "complex128_neg",
 			setValue: complex128(complex(-7, -8)),
 			getValue: new(complex128),
 		},
 		{
-			name:     "CustomStruct",
+			name:     "custom_struct",
 			setValue: struct{ Name string }{"Test"},
 			getValue: new(struct{ Name string }),
 		},
 		{
-			name: "NamedStruct",
+			name: "named_struct",
 			setValue: TestNamedStruct{
 				Value:     "foo",
 				ID:        123,
@@ -1006,7 +1250,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(TestNamedStruct),
 		},
 		{
-			name: "MapValueWithZeroKey",
+			name: "map_value_with_zero_key",
 			setValue: TestNamedStruct{
 				Value:     "foo",
 				MapIntKey: map[int]string{0: "zero", 1: "one"},
@@ -1014,7 +1258,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(TestNamedStruct),
 		},
 		{
-			name: "MapValueWithZeroValue",
+			name: "map_value_with_zero_value",
 			setValue: TestNamedStruct{
 				Value:     "foo",
 				MapIntKey: map[int]string{1: "", 2: ""},
@@ -1022,17 +1266,17 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(TestNamedStruct),
 		},
 		{
-			name:     "NamedStructEmpty",
+			name:     "named_struct_empty",
 			setValue: TestNamedStruct{},
 			getValue: new(TestNamedStruct),
 		},
 		{
-			name:     "NamedStructPointer",
+			name:     "named_struct_pointer",
 			setValue: &TestNamedStruct{},
 			getValue: new(*TestNamedStruct),
 		},
 		{
-			name: "PointerStruct",
+			name: "pointer_struct",
 			setValue: TestPointerStruct{
 				S: &defaultStr,
 				I: &defaultI,
@@ -1041,19 +1285,19 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(TestPointerStruct),
 		},
 		{
-			name:     "EmbeddedStruct",
+			name:     "embedded_struct",
 			setValue: TestStructEmbedded{TestNamedStruct: TestNamedStruct{Value: "foo", ID: 1}, DirectStr: "str"},
 			getValue: new(TestStructEmbedded),
 		},
 		{
-			name: "CustomJsonStructEmpty",
+			name: "custom_json_struct_empty",
 			setValue: TestCustomJsonStruct{
 				Value: "foo",
 			},
 			getValue: new(TestCustomJsonStruct),
 		},
 		{
-			name: "CustomJsonStructFilled",
+			name: "custom_json_struct_filled",
 			setValue: TestCustomJsonStruct{
 				Value:    "foo",
 				EmptyStr: "str",
@@ -1063,62 +1307,62 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(TestCustomJsonStruct),
 		},
 		{
-			name:     "Map",
+			name:     "map",
 			setValue: map[string]string{"foo1": "bar1", "foo2": "bar2"},
 			getValue: new(map[string]string),
 		},
 		{
-			name:     "MapWithZeroKey",
+			name:     "map_with_zero_key",
 			setValue: map[string]string{"": "foo"},
 			getValue: new(map[string]string),
 		},
 		{
-			name:     "MapWithZeroValue",
+			name:     "map_with_zero_value",
 			setValue: map[string]string{"foo": ""},
 			getValue: new(map[string]string),
 		},
 		{
-			name:     "ByteArray",
+			name:     "byte_array",
 			setValue: [4]byte{1, 2, 3, 4},
 			getValue: new([4]byte),
 		},
 		{
-			name:     "ByteSlice",
+			name:     "byte_slice",
 			setValue: []byte{1, 2, 3, 4},
 			getValue: new([]byte),
 		},
 		{
-			name:     "IntArray",
+			name:     "int_array",
 			setValue: [4]int{1, 2, 3, 4},
 			getValue: new([4]int),
 		},
 		{
-			name:     "IntSlice",
+			name:     "int_slice",
 			setValue: []int{1, 2, 3, 4},
 			getValue: new([]int),
 		},
 		{
-			name:     "Int64Array",
+			name:     "int64_array",
 			setValue: [4]int64{1000, 2000, 3000, 4000},
 			getValue: new([4]int64),
 		},
 		{
-			name:     "Int64Slice",
+			name:     "int64_slice",
 			setValue: []int64{1000, 2000, 3000, 4000},
 			getValue: new([]int64),
 		},
 		{
-			name:     "StringArray",
+			name:     "string_array",
 			setValue: [2]string{"foo", "bar"},
 			getValue: new([2]string),
 		},
 		{
-			name:     "StringSlice",
+			name:     "string_slice",
 			setValue: []string{"foo", "bar"},
 			getValue: new([]string),
 		},
 		{
-			name: "StructSlice",
+			name: "struct_slice",
 			setValue: []TestNamedStruct{
 				{Value: "foo", ID: 123},
 				{Value: "bar", ID: 456},
@@ -1126,112 +1370,112 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new([]TestNamedStruct),
 		},
 		{
-			name:     "MapPointer",
+			name:     "map_pointer",
 			setValue: &map[string]string{"foo": "bar", "key": "value"},
 			getValue: new(*map[string]string),
 		},
 		{
-			name:     "StructPointer",
+			name:     "struct_pointer",
 			setValue: &TestNamedStruct{Value: "foo", ID: 123},
 			getValue: new(*TestNamedStruct),
 		},
 		{
-			name:     "NestedMap",
+			name:     "nested_map",
 			setValue: map[string]map[string]int{"outer": {"inner": 42}},
 			getValue: new(map[string]map[string]int),
 		},
 		{
-			name:     "MixedTypeSlice",
+			name:     "mixed_type_slice",
 			setValue: []interface{}{"two", 3.0},
 			getValue: new([]interface{}),
 		},
 		{
-			name:     "PointerSlice",
+			name:     "pointer_slice",
 			setValue: []*int{new(int), new(int)},
 			getValue: new([]*int),
 		},
 		{
-			name:     "UintSlice",
+			name:     "uint_slice",
 			setValue: []uint{10, 20, 30},
 			getValue: new([]uint),
 		},
 		{
-			name:     "Uint8Slice",
+			name:     "uint8_slice",
 			setValue: []uint8{1, 2, 3, 4},
 			getValue: new([]uint8),
 		},
 		{
-			name:     "Uint16Slice",
+			name:     "uint16_slice",
 			setValue: []uint16{100, 200, 300},
 			getValue: new([]uint16),
 		},
 		{
-			name:     "Uint32Slice",
+			name:     "uint32_slice",
 			setValue: []uint32{1000, 2000, 3000},
 			getValue: new([]uint32),
 		},
 		{
-			name:     "Uint64Slice",
+			name:     "uint64_slice",
 			setValue: []uint64{10000, 20000, 30000},
 			getValue: new([]uint64),
 		},
 		{
-			name:     "Float32Slice",
+			name:     "float32_slice",
 			setValue: []float32{3.14, 6.28},
 			getValue: new([]float32),
 		},
 		{
-			name:     "Float64Slice",
+			name:     "float64_slice",
 			setValue: []float64{3.1415, 2.718},
 			getValue: new([]float64),
 		},
 		{
-			name:     "BoolSlice",
+			name:     "bool_slice",
 			setValue: []bool{true, false, true},
 			getValue: new([]bool),
 		},
 		{
-			name:     "UintArray",
+			name:     "uint_array",
 			setValue: [4]uint{10, 20, 30, 40},
 			getValue: new([4]uint),
 		},
 		{
-			name:     "Uint8Array",
+			name:     "uint8_array",
 			setValue: [4]uint8{1, 2, 3, 4},
 			getValue: new([4]uint8),
 		},
 		{
-			name:     "Uint16Array",
+			name:     "uint16_array",
 			setValue: [4]uint16{100, 200, 300, 400},
 			getValue: new([4]uint16),
 		},
 		{
-			name:     "Uint32Array",
+			name:     "uint32_array",
 			setValue: [4]uint32{1000, 2000, 3000, 4000},
 			getValue: new([4]uint32),
 		},
 		{
-			name:     "Uint64Array",
+			name:     "uint64_array",
 			setValue: [4]uint64{10000, 20000, 30000, 40000},
 			getValue: new([4]uint64),
 		},
 		{
-			name:     "Float32Array",
+			name:     "float32_array",
 			setValue: [4]float32{3.14, 6.28, 9.42, 12.56},
 			getValue: new([4]float32),
 		},
 		{
-			name:     "Float64Array",
+			name:     "float64_array",
 			setValue: [4]float64{3.1415, 2.718, 1.618, 0.577},
 			getValue: new([4]float64),
 		},
 		{
-			name:     "BoolArray",
+			name:     "bool_array",
 			setValue: [4]bool{true, false, true, false},
 			getValue: new([4]bool),
 		},
 		{
-			name: "NestedStruct",
+			name: "nested_struct",
 			setValue: TestNestedStruct{
 				Inner: TestNamedStruct{
 					Value: "nested",
@@ -1245,7 +1489,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(TestNestedStruct),
 		},
 		{
-			name: "StructWithSlice",
+			name: "struct_with_slice",
 			setValue: TestStructWithSlice{
 				Values: []TestNamedStruct{
 					{Value: "first", ID: 1},
@@ -1255,7 +1499,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(TestStructWithSlice),
 		},
 		{
-			name: "PointerStructExpanded",
+			name: "pointer_struct_expanded",
 			setValue: TestPointerStruct{
 				S: &defaultStr,
 				I: &defaultI,
@@ -1266,22 +1510,22 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(TestPointerStruct),
 		},
 		{
-			name:     "StructSliceAnonymous",
+			name:     "anonymous_struct_slice",
 			setValue: []struct{ Name string }{{Name: "Alice"}, {Name: "Bob"}},
 			getValue: new([]struct{ Name string }),
 		},
 		{
-			name:     "PointerStructSlice",
+			name:     "pointer_struct_slice",
 			setValue: []*TestPointerStruct{{S: &defaultStr, I: &defaultI}, {T: &defaultT, F: &defaultF}},
 			getValue: new([]*TestPointerStruct),
 		},
 		{
-			name:     "EmptyStruct",
+			name:     "empty_struct",
 			setValue: struct{}{},
 			getValue: new(struct{}),
 		},
 		{
-			name: "StructWithMixedFields",
+			name: "struct_with_mixed_fields",
 			setValue: struct {
 				Str  string
 				Ptr  *string
@@ -1296,7 +1540,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			}),
 		},
 		{
-			name: "StructWithEmbeddedStruct",
+			name: "struct_with_embedded_struct",
 			setValue: struct {
 				Embedded TestNamedStruct
 				Extra    string
@@ -1307,7 +1551,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			}),
 		},
 		{
-			name: "PointerToEmptyStruct",
+			name: "pointer_to_empty_struct",
 			setValue: &struct {
 				Name string
 			}{},
@@ -1316,32 +1560,32 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			}),
 		},
 		{
-			name:     "RuneSlice",
+			name:     "rune_slice",
 			setValue: []rune{'a', 'b', 'c'},
 			getValue: new([]rune),
 		},
 		{
-			name:     "ByteSliceWithZeros",
+			name:     "byte_slice_with_zeros",
 			setValue: []byte{0, 1, 2, 3, 0},
 			getValue: new([]byte),
 		},
 		{
-			name:     "EmptyByteSlice",
+			name:     "empty_byte_slice",
 			setValue: []byte{},
 			getValue: new([]byte),
 		},
 		{
-			name:     "NilByteSlice",
+			name:     "nil_byte_slice",
 			setValue: ([]byte)(nil),
 			getValue: new([]byte),
 		},
 		{
-			name:     "StructPointerSlice",
+			name:     "struct_pointer_slice",
 			setValue: []*TestNamedStruct{{Value: "first", ID: 1}, nil, {Value: "second", ID: 2}},
 			getValue: new([]*TestNamedStruct),
 		},
 		{
-			name: "StructWithEmbeddedAnonymousStruct",
+			name: "embedded_anonymous_struct",
 			setValue: TestStructWithEmbeddedAnonymous{
 				Embedded: struct {
 					Name string
@@ -1352,7 +1596,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(TestStructWithEmbeddedAnonymous),
 		},
 		{
-			name: "StructWithPointerToAnonymousStruct",
+			name: "pointer_to_anonymous_struct",
 			setValue: TestStructWithPointerToAnonymous{
 				Ptr: &struct {
 					Name string
@@ -1362,14 +1606,14 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(TestStructWithPointerToAnonymous),
 		},
 		{
-			name: "StructWithPointerToEmptyStruct",
+			name: "typed_pointer_to_empty_struct",
 			setValue: TestStructWithPointerToEmpty{
 				Ptr: &struct{}{},
 			},
 			getValue: new(TestStructWithPointerToEmpty),
 		},
 		{
-			name: "MapWithEmptyValues",
+			name: "map_with_empty_values",
 			setValue: map[string]interface{}{
 				"emptyStr":   "",
 				"emptyFloat": 0.0,
@@ -1378,7 +1622,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(map[string]interface{}),
 		},
 		{
-			name: "NestedPointerMap",
+			name: "nested_pointer_map",
 			setValue: map[string]*TestNamedStruct{
 				"key1": {Value: "nested1", ID: 111},
 				"key2": nil,
@@ -1386,7 +1630,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(map[string]*TestNamedStruct),
 		},
 		{
-			name: "StructWithInterfaceField",
+			name: "struct_with_interface_field",
 			setValue: struct {
 				Value interface{}
 			}{Value: "interfaceString"},
@@ -1395,7 +1639,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			}),
 		},
 		{
-			name: "StructWithEmbeddedAnonymousPointer",
+			name: "embedded_anonymous_pointer",
 			setValue: struct {
 				Ptr *struct {
 					Name string
@@ -1413,7 +1657,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			}),
 		},
 		{
-			name: "DeeplyNestedStruct",
+			name: "deeply_nested_struct",
 			setValue: struct {
 				Level1 struct {
 					Level2 struct {
@@ -1457,14 +1701,14 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			}),
 		},
 		{
-			name: "LargeIntSlice",
+			name: "large_int_slice",
 			setValue: []int{
 				1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
 			},
 			getValue: new([]int),
 		},
 		{
-			name: "MapWithMixedTypes",
+			name: "map_with_mixed_types",
 			setValue: map[string]interface{}{
 				"string": "foo",
 				"float":  42.0,
@@ -1473,12 +1717,12 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(map[string]interface{}),
 		},
 		{
-			name:     "CustomMarshalerStruct",
+			name:     "custom_marshaler_struct",
 			setValue: TestCustomMarshaler{Value: "test", Encoded: json.RawMessage(`"custom"`)},
 			getValue: new(TestCustomMarshaler),
 		},
 		{
-			name: "StructWithEmbeddedCustomMarshaler",
+			name: "embedded_custom_marshaler",
 			setValue: TestStructWithEmbeddedCustomMarshaler{
 				Embedded: TestCustomMarshaler{Value: "inner", Encoded: json.RawMessage(`"encoded"`)},
 				Extra:    "extra",
@@ -1486,7 +1730,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(TestStructWithEmbeddedCustomMarshaler),
 		},
 		{
-			name: "StructWithMultiPointer",
+			name: "multi_pointer",
 			setValue: TestStructWithMultiPointer{
 				PPP: func() ***int {
 					p := &defaultI
@@ -1498,7 +1742,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(TestStructWithMultiPointer),
 		},
 		{
-			name: "StructWithDeepNesting",
+			name: "deep_nested_struct",
 			setValue: TestStructWithDeepNesting{
 				Level1: struct {
 					Level2 struct {
@@ -1524,7 +1768,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(TestStructWithDeepNesting),
 		},
 		{
-			name: "StructWithDeeplyNestedMap",
+			name: "deeply_nested_map",
 			setValue: TestStructWithDeeplyNestedMap{
 				Data: map[string]interface{}{
 					"level1": map[string]interface{}{
@@ -1537,17 +1781,17 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(TestStructWithDeeplyNestedMap),
 		},
 		{
-			name:     "LargeByteSlice",
+			name:     "large_byte_slice",
 			setValue: make([]byte, 1024),
 			getValue: new([]byte),
 		},
 		{
-			name:     "MixedByteArrayAndSlice",
+			name:     "mixed_byte_array_and_slice",
 			setValue: struct{ Data [4]byte }{Data: [4]byte{1, 2, 3, 4}},
 			getValue: new(struct{ Data [4]byte }),
 		},
 		{
-			name: "StructWithEmptyMap",
+			name: "struct_with_empty_map",
 			setValue: struct {
 				EmptyMap map[string]int
 			}{EmptyMap: map[string]int{}},
@@ -1556,7 +1800,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			}),
 		},
 		{
-			name: "StructWithNilMap",
+			name: "struct_with_nil_map",
 			setValue: struct {
 				NilMap map[string]int
 			}{NilMap: nil},
@@ -1565,7 +1809,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			}),
 		},
 		{
-			name: "StructWithEmptySlice",
+			name: "struct_with_empty_slice",
 			setValue: struct {
 				EmptySlice []string
 			}{EmptySlice: []string{}},
@@ -1574,7 +1818,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			}),
 		},
 		{
-			name: "StructWithNilSlice",
+			name: "struct_with_nil_slice",
 			setValue: struct {
 				NilSlice []string
 			}{NilSlice: nil},
@@ -1583,7 +1827,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			}),
 		},
 		{
-			name: "StructWithPointerToEmptyStruct",
+			name: "anon_pointer_to_empty_struct",
 			setValue: struct {
 				Ptr *struct{}
 			}{Ptr: &struct{}{}},
@@ -1592,7 +1836,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			}),
 		},
 		{
-			name: "SliceOfStructsWithDefaultValues",
+			name: "struct_slice_with_defaults",
 			setValue: []TestNamedStruct{
 				{Value: "", ID: 0},
 				{Value: "filled", ID: 123},
@@ -1600,21 +1844,21 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new([]TestNamedStruct),
 		},
 		{
-			name: "StructWithInterfaceNil",
+			name: "struct_with_nil_interface",
 			setValue: struct {
 				Field interface{}
 			}{Field: nil},
 			getValue: new(struct{ Field interface{} }),
 		},
 		{
-			name: "StructWithPointerToSlice",
+			name: "struct_with_pointer_to_slice",
 			setValue: struct {
 				PtrSlice *[]int
 			}{PtrSlice: &[]int{1, 2, 3}},
 			getValue: new(struct{ PtrSlice *[]int }),
 		},
 		{
-			name: "EmptyStructPointerSlice",
+			name: "empty_struct_pointer_slice",
 			setValue: []*struct {
 				Name string
 			}{},
@@ -1623,7 +1867,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			}),
 		},
 		{
-			name: "NilStructPointerSlice",
+			name: "nil_struct_pointer_slice",
 			setValue: []*struct {
 				Name string
 			}(nil),
@@ -1632,7 +1876,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			}),
 		},
 		{
-			name: "EmptyMapWithNonEmptyValues",
+			name: "map_with_empty_and_filled",
 			setValue: map[string]interface{}{
 				"emptyMap":  map[string]interface{}{},
 				"filledMap": map[string]interface{}{"a": 1.0},
@@ -1640,12 +1884,12 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(map[string]interface{}),
 		},
 		{
-			name:     "SliceWithNilValues",
+			name:     "slice_with_nil_values",
 			setValue: []interface{}{nil, "non-nil", nil},
 			getValue: new([]interface{}),
 		},
 		{
-			name: "StructWithDoublePointer",
+			name: "double_pointer",
 			setValue: struct {
 				Ptr **int
 			}{
@@ -1660,7 +1904,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			}),
 		},
 		{
-			name: "StructWithTriplePointerLevels",
+			name: "triple_pointer",
 			setValue: struct {
 				PP ***int
 			}{
@@ -1676,7 +1920,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			}),
 		},
 		{
-			name: "StructWithNestedPointerSlice",
+			name: "nested_pointer_slice",
 			setValue: struct {
 				PtrSlice *[]*int
 			}{
@@ -1687,7 +1931,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			}),
 		},
 		{
-			name: "MixedTypeMapWithNilValues",
+			name: "mixed_map_with_nil",
 			setValue: map[string]interface{}{
 				"string": "hello",
 				"float":  3.14,
@@ -1699,7 +1943,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(map[string]interface{}),
 		},
 		{
-			name: "NestedMixedMap",
+			name: "nested_mixed_map",
 			setValue: map[string]interface{}{
 				"outer": map[string]interface{}{
 					"innerString": "value",
@@ -1710,7 +1954,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			getValue: new(map[string]interface{}),
 		},
 		{
-			name: "StructWithRawMessage",
+			name: "struct_with_raw_message",
 			setValue: struct {
 				Raw json.RawMessage
 			}{
@@ -1721,7 +1965,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 			}),
 		},
 		{
-			name: "StructWithNilPtrInt",
+			name: "struct_with_nil_int_pointer",
 			setValue: struct {
 				Field *int
 			}{Field: nil},
@@ -1748,7 +1992,7 @@ func TestKeyValueCSV_SetAndGet(t *testing.T) {
 	}
 
 	// extra tests
-	t.Run("PointerToEmptySlice", func(t *testing.T) {
+	t.Run("pointer_to_empty_slice", func(t *testing.T) {
 		type TestPointerSlice struct {
 			Slice *[]int
 		}
@@ -2042,18 +2286,18 @@ func TestKeyValueCSV_SetError(t *testing.T) {
 		setValue interface{}
 	}{
 		{
-			name:     "NilValue",
+			name:     "nil_value",
 			setValue: nil,
 		},
 		{
-			name: "StructWithFunc",
+			name: "struct_with_func",
 			setValue: struct {
 				FuncField func() int
 				Value     int
 			}{FuncField: func() int { return 42 }, Value: 100},
 		},
 		{
-			name:     "NilPointerToEmptySlice",
+			name:     "nil_ptr_to_empty_slice",
 			setValue: (*[]int)(nil),
 		},
 	}
@@ -2076,77 +2320,77 @@ func TestKeyValueCSV_GetOverflowError(t *testing.T) {
 		getValue interface{}
 	}{
 		{
-			name:     "Float32Over",
+			name:     "float32_over",
 			setValue: math.MaxFloat32 * 2,
 			getValue: new(float32),
 		},
 		{
-			name:     "Float32Under",
+			name:     "float32_under",
 			setValue: -math.MaxFloat32 * 2,
 			getValue: new(float32),
 		},
 		{
-			name:     "Int8Over",
+			name:     "int8_over",
 			setValue: int16(math.MaxInt8 + 1),
 			getValue: new(int8),
 		},
 		{
-			name:     "Int8Under",
+			name:     "int8_under",
 			setValue: int16(math.MinInt8 - 1),
 			getValue: new(int8),
 		},
 		{
-			name:     "Int16Over",
+			name:     "int16_over",
 			setValue: int32(math.MaxInt16 + 1),
 			getValue: new(int16),
 		},
 		{
-			name:     "Int16Under",
+			name:     "int16_under",
 			setValue: int32(math.MinInt16 - 1),
 			getValue: new(int16),
 		},
 		{
-			name:     "Int32Over",
+			name:     "int32_over",
 			setValue: int64(math.MaxInt32 + 1),
 			getValue: new(int32),
 		},
 		{
-			name:     "Int32Under",
+			name:     "int32_under",
 			setValue: int64(math.MinInt32 - 1),
 			getValue: new(int32),
 		},
 		{
-			name:     "Uint8Over",
+			name:     "uint8_over",
 			setValue: uint16(math.MaxUint8 + 1),
 			getValue: new(uint8),
 		},
 		{
-			name:     "Uint16Over",
+			name:     "uint16_over",
 			setValue: uint32(math.MaxUint16 + 1),
 			getValue: new(uint16),
 		},
 		{
-			name:     "Uint32Over",
+			name:     "uint32_over",
 			setValue: uint64(math.MaxUint32 + 1),
 			getValue: new(uint32),
 		},
 		{
-			name:     "Complex64RealOver",
+			name:     "complex64_real_over",
 			setValue: complex(math.MaxFloat32*2, 6),
 			getValue: new(complex64),
 		},
 		{
-			name:     "Complex64RealUnder",
+			name:     "complex64_real_under",
 			setValue: complex(-math.MaxFloat32*2, 6),
 			getValue: new(complex64),
 		},
 		{
-			name:     "Complex64ImagOver",
+			name:     "complex64_imag_over",
 			setValue: complex(5, math.MaxFloat32*2),
 			getValue: new(complex64),
 		},
 		{
-			name:     "Complex64ImagUnder",
+			name:     "complex64_imag_under",
 			setValue: complex(5, -math.MaxFloat32*2),
 			getValue: new(complex64),
 		},
@@ -2231,158 +2475,158 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 		expectedFileSizeTwo int64
 	}{
 		{
-			name:                "String",
+			name:                "string",
 			value:               "testString",
 			expectedStrSize:     10,
-			expectedFileSizeOne: 35,
-			expectedFileSizeTwo: 64,
+			expectedFileSizeOne: 22,
+			expectedFileSizeTwo: 38,
 		},
 		{
-			name:                "Bool",
+			name:                "bool",
 			value:               true,
 			expectedStrSize:     1,
-			expectedFileSizeOne: 24,
-			expectedFileSizeTwo: 42,
+			expectedFileSizeOne: 13,
+			expectedFileSizeTwo: 20,
 		},
 		{
-			name:                "Float32",
+			name:                "float32",
 			value:               float32(3.1414999961853027),
 			expectedStrSize:     18,
-			expectedFileSizeOne: 44,
-			expectedFileSizeTwo: 82,
+			expectedFileSizeOne: 30,
+			expectedFileSizeTwo: 54,
 		},
 		{
-			name:                "Float64",
+			name:                "float64",
 			value:               float64(3.1415),
 			expectedStrSize:     6,
-			expectedFileSizeOne: 32,
-			expectedFileSizeTwo: 58,
+			expectedFileSizeOne: 18,
+			expectedFileSizeTwo: 30,
 		},
 		{
-			name:                "Int",
+			name:                "int",
 			value:               int(42),
 			expectedStrSize:     2,
-			expectedFileSizeOne: 24,
-			expectedFileSizeTwo: 42,
+			expectedFileSizeOne: 14,
+			expectedFileSizeTwo: 22,
 		},
 		{
-			name:                "Int8",
+			name:                "int8",
 			value:               int8(8),
 			expectedStrSize:     1,
-			expectedFileSizeOne: 24,
-			expectedFileSizeTwo: 42,
+			expectedFileSizeOne: 13,
+			expectedFileSizeTwo: 20,
 		},
 		{
-			name:                "Int16",
+			name:                "int16",
 			value:               int16(16),
 			expectedStrSize:     2,
-			expectedFileSizeOne: 26,
-			expectedFileSizeTwo: 46,
+			expectedFileSizeOne: 14,
+			expectedFileSizeTwo: 22,
 		},
 		{
-			name:                "Int32",
+			name:                "int32",
 			value:               int32(32),
 			expectedStrSize:     2,
-			expectedFileSizeOne: 26,
-			expectedFileSizeTwo: 46,
+			expectedFileSizeOne: 14,
+			expectedFileSizeTwo: 22,
 		},
 		{
-			name:                "Int64",
+			name:                "int64",
 			value:               int64(64),
 			expectedStrSize:     2,
-			expectedFileSizeOne: 26,
-			expectedFileSizeTwo: 46,
+			expectedFileSizeOne: 14,
+			expectedFileSizeTwo: 22,
 		},
 		{
-			name:                "Uint",
+			name:                "uint",
 			value:               uint(1),
 			expectedStrSize:     1,
-			expectedFileSizeOne: 24,
-			expectedFileSizeTwo: 42,
+			expectedFileSizeOne: 13,
+			expectedFileSizeTwo: 20,
 		},
 		{
-			name:                "Uint8",
+			name:                "uint8",
 			value:               uint8(8),
 			expectedStrSize:     1,
-			expectedFileSizeOne: 25,
-			expectedFileSizeTwo: 44,
+			expectedFileSizeOne: 13,
+			expectedFileSizeTwo: 20,
 		},
 		{
-			name:                "Uint16",
+			name:                "uint16",
 			value:               uint16(16),
 			expectedStrSize:     2,
-			expectedFileSizeOne: 27,
-			expectedFileSizeTwo: 48,
+			expectedFileSizeOne: 14,
+			expectedFileSizeTwo: 22,
 		},
 		{
-			name:                "Uint32",
+			name:                "uint32",
 			value:               uint32(32),
 			expectedStrSize:     2,
-			expectedFileSizeOne: 27,
-			expectedFileSizeTwo: 48,
+			expectedFileSizeOne: 14,
+			expectedFileSizeTwo: 22,
 		},
 		{
-			name:                "Uint64",
+			name:                "uint64",
 			value:               uint64(64),
 			expectedStrSize:     2,
-			expectedFileSizeOne: 27,
-			expectedFileSizeTwo: 48,
+			expectedFileSizeOne: 14,
+			expectedFileSizeTwo: 22,
 		},
 		{
-			name:                "Complex64",
+			name:                "complex64",
 			value:               complex64(complex(5, 6)),
 			expectedStrSize:     6,
-			expectedFileSizeOne: 34,
-			expectedFileSizeTwo: 62,
+			expectedFileSizeOne: 18,
+			expectedFileSizeTwo: 30,
 		},
 		{
-			name:                "Complex128",
+			name:                "complex128",
 			value:               complex128(complex(7, 8)),
 			expectedStrSize:     6,
-			expectedFileSizeOne: 35,
-			expectedFileSizeTwo: 64,
+			expectedFileSizeOne: 18,
+			expectedFileSizeTwo: 30,
 		},
 		{
-			name:                "CustomStruct",
+			name:                "custom_struct",
 			value:               struct{ Name string }{"Test"},
 			expectedStrSize:     15,
-			expectedFileSizeOne: 52,
-			expectedFileSizeTwo: 113,
+			expectedFileSizeOne: 33,
+			expectedFileSizeTwo: 75,
 		},
 		{
-			name: "CustomStructEmptyField",
+			name: "custom_struct_empty_field",
 			value: struct {
 				Name     string
 				EmptyStr string
 			}{Name: "Test"},
 			expectedStrSize:     15,
-			expectedFileSizeOne: 62,
-			expectedFileSizeTwo: 149,
+			expectedFileSizeOne: 33,
+			expectedFileSizeTwo: 91,
 		},
 		{
-			name: "NamedStruct",
+			name: "named_struct",
 			value: TestNamedStruct{
 				Value: "foo",
 				ID:    123,
 				Map:   map[string]TestNamedStruct{"bar": {Value: "bar", ID: 987, Bool: true}},
 			},
 			expectedStrSize:     135,
-			expectedFileSizeOne: 193,
-			expectedFileSizeTwo: 362,
+			expectedFileSizeOne: 175,
+			expectedFileSizeTwo: 326,
 		},
 		{
-			name: "PointerStruct",
+			name: "pointer_struct",
 			value: TestPointerStruct{
 				S: &defaultStr,
 				I: &defaultI,
 				T: &defaultT,
 			},
 			expectedStrSize:     41,
-			expectedFileSizeOne: 85,
-			expectedFileSizeTwo: 167,
+			expectedFileSizeOne: 65,
+			expectedFileSizeTwo: 127,
 		},
 		{
-			name: "StructEmbedded",
+			name: "struct_embedded",
 			value: TestStructEmbedded{
 				TestNamedStruct: TestNamedStruct{
 					Value: "foo",
@@ -2393,20 +2637,20 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 				DirectStr: "str",
 			},
 			expectedStrSize:     165,
-			expectedFileSizeOne: 232,
-			expectedFileSizeTwo: 412,
+			expectedFileSizeOne: 211,
+			expectedFileSizeTwo: 370,
 		},
 		{
-			name: "CustomJsonStructEmpty",
+			name: "custom_json_struct_empty",
 			value: TestCustomJsonStruct{
 				Value: "foo",
 			},
 			expectedStrSize:     11,
-			expectedFileSizeOne: 57,
-			expectedFileSizeTwo: 135,
+			expectedFileSizeOne: 29,
+			expectedFileSizeTwo: 79,
 		},
 		{
-			name: "StructWithDeeplyNestedMap",
+			name: "deeply_nested_map",
 			value: TestStructWithDeeplyNestedMap{
 				Data: map[string]interface{}{
 					"level1": map[string]interface{}{
@@ -2417,84 +2661,97 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 				},
 			},
 			expectedStrSize:     58,
-			expectedFileSizeOne: 116,
-			expectedFileSizeTwo: 258,
+			expectedFileSizeOne: 84,
+			expectedFileSizeTwo: 194,
 		},
 		{
-			name:                "CustomMarshalerStruct",
+			name:                "custom_marshaler_struct",
 			value:               TestCustomMarshaler{Value: "test", Encoded: json.RawMessage(`"custom"`)},
 			expectedStrSize:     35,
-			expectedFileSizeOne: 85,
-			expectedFileSizeTwo: 170,
+			expectedFileSizeOne: 57,
+			expectedFileSizeTwo: 114,
 		},
 		{
-			name: "StructWithEmbeddedCustomMarshaler",
+			name: "embedded_custom_marshaler",
 			value: TestStructWithEmbeddedCustomMarshaler{
 				Embedded: TestCustomMarshaler{Value: "inner", Encoded: json.RawMessage(`"encoded"`)},
 				Extra:    "extra",
 			},
 			expectedStrSize:     66,
-			expectedFileSizeOne: 134,
-			expectedFileSizeTwo: 284,
+			expectedFileSizeOne: 94,
+			expectedFileSizeTwo: 204,
 		},
 		{
-			name:                "Map",
+			name:                "map",
 			value:               map[string]string{"foo1": "bar1", "foo2": "bar2"},
 			expectedStrSize:     29,
-			expectedFileSizeOne: 62,
-			expectedFileSizeTwo: 118,
-		},
-		{
-			name:                "MapZeroKey",
-			value:               map[string]string{"": "foo"},
-			expectedStrSize:     10,
-			expectedFileSizeOne: 46,
-			expectedFileSizeTwo: 86,
-		},
-		{
-			name:                "MapZeroValue",
-			value:               map[string]string{"foo": ""},
-			expectedStrSize:     10,
-			expectedFileSizeOne: 48,
-			expectedFileSizeTwo: 90,
-		},
-		{
-			name:                "ByteSlice",
-			value:               []byte{1, 2, 3, 4},
-			expectedStrSize:     10,
-			expectedFileSizeOne: 42,
-			expectedFileSizeTwo: 78,
-		},
-		{
-			name:                "IntSlice",
-			value:               []int{1, 2, 3, 4},
-			expectedStrSize:     9,
-			expectedFileSizeOne: 38,
-			expectedFileSizeTwo: 70,
-		},
-		{
-			name:                "Int64Slice",
-			value:               []int64{1000, 2000, 3000, 4000},
-			expectedStrSize:     21,
 			expectedFileSizeOne: 52,
 			expectedFileSizeTwo: 98,
 		},
 		{
-			name:                "StringSlice",
-			value:               []string{"foo", "bar"},
-			expectedStrSize:     13,
-			expectedFileSizeOne: 49,
-			expectedFileSizeTwo: 92,
+			name:                "map_zero_key",
+			value:               map[string]string{"": "foo"},
+			expectedStrSize:     10,
+			expectedFileSizeOne: 29,
+			expectedFileSizeTwo: 52,
 		},
 		{
-			name: "StructSlice",
+			name:                "map_zero_value",
+			value:               map[string]string{"foo": ""},
+			expectedStrSize:     10,
+			expectedFileSizeOne: 29,
+			expectedFileSizeTwo: 52,
+		},
+		{
+			name:                "byte_slice",
+			value:               []byte{1, 2, 3, 4},
+			expectedStrSize:     10,
+			expectedFileSizeOne: 26,
+			expectedFileSizeTwo: 46,
+		},
+		{
+			name:                "int_slice",
+			value:               []int{1, 2, 3, 4},
+			expectedStrSize:     9,
+			expectedFileSizeOne: 23,
+			expectedFileSizeTwo: 40,
+		},
+		{
+			name:                "int64_slice",
+			value:               []int64{1000, 2000, 3000, 4000},
+			expectedStrSize:     21,
+			expectedFileSizeOne: 35,
+			expectedFileSizeTwo: 64,
+		},
+		{
+			name:                "string_slice",
+			value:               []string{"foo", "bar"},
+			expectedStrSize:     13,
+			expectedFileSizeOne: 31,
+			expectedFileSizeTwo: 56,
+		},
+		{
+			name: "struct_slice",
 			value: []TestNamedStruct{
 				{Value: "foo", ID: 123},
 				{Value: "bar", ID: 456},
 			},
 			expectedStrSize:     111,
-			expectedFileSizeOne: 163,
-			expectedFileSizeTwo: 320,
+			expectedFileSizeOne: 145,
+			expectedFileSizeTwo: 284,
+		},
+		{
+			name: "struct_slice_five",
+			value: []TestNamedStruct{
+				{Value: "v0", ID: 0},
+				{Value: "v1", ID: 1},
+				{Value: "v2", ID: 2},
+				{Value: "v3", ID: 3},
+				{Value: "v4", ID: 4},
+			},
+			expectedStrSize:     254,
+			expectedFileSizeOne: 316,
+			expectedFileSizeTwo: 626,
 		},
 	}
 
@@ -2502,10 +2759,9 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpFile, m := makeTestMap(t)
 
-			key1 := "testKey1-" + tc.name
-			require.NoError(t, m.Set(key1, tc.value))
+			require.NoError(t, m.Set("k1", tc.value))
 
-			valueHolder, found := m.memoryMap.data[key1]
+			valueHolder, found := m.memoryMap.data["k1"]
 			assert.True(t, found)
 			value := valueHolder.value
 			assert.Lenf(t, value, tc.expectedStrSize, "unexpected encoded value size: %s", value)
@@ -2513,13 +2769,13 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 			require.NoError(t, m.Commit())
 			verifyFileSize(t, tmpFile, tc.expectedFileSizeOne)
 
-			require.NoError(t, m.Set("testKey2-"+tc.name, tc.value))
+			require.NoError(t, m.Set("k2", tc.value))
 			require.NoError(t, m.Commit())
 			verifyFileSize(t, tmpFile, tc.expectedFileSizeTwo)
 		})
 	}
 
-	t.Run("MixedFieldsSize", func(t *testing.T) {
+	t.Run("mixed_fields", func(t *testing.T) {
 		tmpFile, m := makeTestMap(t)
 
 		values := map[string]TestNamedStruct{
@@ -2543,7 +2799,26 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 		verifyFileSize(t, tmpFile, 670)
 	})
 
-	t.Run("MixedFieldTypes", func(t *testing.T) {
+	t.Run("two_struct_slices_size", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+
+		sliceA := []TestNamedStruct{
+			{Value: "a0", ID: 1, Bool: true},
+			{Value: "a1", ID: 2},
+			{Value: "a2", ID: 3, Float: 1.5},
+		}
+		sliceB := []TestNamedStruct{
+			{Value: "b0", ID: 100},
+			{Value: "b1", ID: 200, Bool: true},
+		}
+		require.NoError(t, m.Set("k:sliceA", sliceA))
+		require.NoError(t, m.Set("k:sliceB", sliceB))
+		require.NoError(t, m.Commit())
+
+		verifyFileSize(t, tmpFile, 392)
+	})
+
+	t.Run("mixed_field_types", func(t *testing.T) {
 		tmpFile, m := makeTestMap(t)
 
 		values := map[string]TestAnyStruct{
@@ -2650,12 +2925,12 @@ func TestKeyValueCSV_IsFloat32Overflow(t *testing.T) {
 		value    float64
 		overflow bool
 	}{
-		{name: "Zero", value: 0, overflow: false},
-		{name: "Small", value: 123.456, overflow: false},
-		{name: "MaxFloat32", value: math.MaxFloat32, overflow: false},
-		{name: "NegMaxFloat32", value: -math.MaxFloat32, overflow: false},
-		{name: "OverPos", value: math.MaxFloat32 * 2, overflow: true},
-		{name: "OverNeg", value: -math.MaxFloat32 * 2, overflow: true},
+		{name: "zero", value: 0, overflow: false},
+		{name: "small", value: 123.456, overflow: false},
+		{name: "max_float32", value: math.MaxFloat32, overflow: false},
+		{name: "neg_max_float32", value: -math.MaxFloat32, overflow: false},
+		{name: "over_pos", value: math.MaxFloat32 * 2, overflow: true},
+		{name: "over_neg", value: -math.MaxFloat32 * 2, overflow: true},
 	}
 
 	for _, tc := range testCases {
@@ -2760,7 +3035,7 @@ func FuzzDecodeValue(f *testing.F) {
 func TestKeyValueCSV_ErrorTypes(t *testing.T) {
 	t.Parallel()
 
-	t.Run("ValidationError_NilMap", func(t *testing.T) {
+	t.Run("validation_nil_map", func(t *testing.T) {
 		err := SetMapValues(nil, map[string]string{"key": "value"})
 		require.Error(t, err)
 
@@ -2769,7 +3044,7 @@ func TestKeyValueCSV_ErrorTypes(t *testing.T) {
 		assert.Contains(t, validationErr.Message, "nil MutableFFMap")
 	})
 
-	t.Run("ValidationError_NilKeyProvider", func(t *testing.T) {
+	t.Run("validation_nil_key_provider", func(t *testing.T) {
 		_, m := makeTestMap(t)
 
 		err := SetSliceValues(m, []string{"value"}, nil)
@@ -2780,7 +3055,7 @@ func TestKeyValueCSV_ErrorTypes(t *testing.T) {
 		assert.Contains(t, validationErr.Message, "nil keyProvider function")
 	})
 
-	t.Run("ValidationError_InvalidFileFormat", func(t *testing.T) {
+	t.Run("validation_invalid_file_format", func(t *testing.T) {
 		// Create a file with invalid format
 		tmpFile, err := os.CreateTemp("", "invalid.*.csv")
 		require.NoError(t, err)
@@ -2798,7 +3073,7 @@ func TestKeyValueCSV_ErrorTypes(t *testing.T) {
 		assert.Contains(t, validationErr.Message, "invalid header line")
 	})
 
-	t.Run("EncodingError_PropagatedFromMemoryMap", func(t *testing.T) {
+	t.Run("encoding_error_propagation", func(t *testing.T) {
 		_, m := makeTestMap(t)
 
 		// Test that encoding errors from the underlying memory map are propagated
@@ -2811,7 +3086,7 @@ func TestKeyValueCSV_ErrorTypes(t *testing.T) {
 		assert.Contains(t, encodingErr.Message, "cannot encode nil value")
 	})
 
-	t.Run("TypeMismatchError_PropagatedFromMemoryMap", func(t *testing.T) {
+	t.Run("type_mismatch_propagation", func(t *testing.T) {
 		_, m := makeTestMap(t)
 
 		require.NoError(t, m.Set("string_key", "string_value"))
@@ -2827,7 +3102,7 @@ func TestKeyValueCSV_ErrorTypes(t *testing.T) {
 		assert.Contains(t, typeMismatchErr.Message, "expected")
 	})
 
-	t.Run("ErrorTypes_DistinctInCSVContext", func(t *testing.T) {
+	t.Run("distinct_error_types", func(t *testing.T) {
 		_, m := makeTestMap(t)
 
 		// Test encoding error

@@ -229,7 +229,7 @@ func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 	for i, key := range keys {
 		dataVal := kv.memoryMap.data[key]
 		if dataVal.dataType == dataStructJson {
-			if dataVal.structId != lastStructName && i+1 < len(keys) && kv.memoryMap.data[keys[i+1]].structId == dataVal.structId {
+			if dataVal.structId != "" && dataVal.structId != lastStructName && i+1 < len(keys) && kv.memoryMap.data[keys[i+1]].structId == dataVal.structId {
 				// we have at least one more value of this type, so encode a header line
 				// first we need to inspect all fields of the struct, we need to check all instances
 				// because may have omitted default fields in specific instances
@@ -269,7 +269,7 @@ func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 				}
 			}
 
-			if dataVal.structId == lastStructName { // append value only
+			if dataVal.structId != "" && dataVal.structId == lastStructName { // append value only
 				var structValue map[string]interface{}
 				if err := json.Unmarshal([]byte(dataVal.value), &structValue); err != nil {
 					return err

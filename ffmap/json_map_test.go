@@ -41,11 +41,11 @@ func TestMemoryJsonMap_Set(t *testing.T) {
 		expectErr bool
 		errMsg    string
 	}{
-		{name: "ValidString", key: "key1", value: "value1", expectErr: false},
-		{name: "ValidInt", key: "key2", value: 42, expectErr: false},
-		{name: "ValidStruct", key: "key3", value: TestNamedStruct{Value: "test", ID: 123}, expectErr: false},
-		{name: "NilValue", key: "key4", value: nil, expectErr: true, errMsg: "cannot encode nil value"},
-		{name: "NilPointer", key: "key5", value: (*string)(nil), expectErr: true, errMsg: "cannot encode nil pointer"},
+		{name: "valid_string", key: "key1", value: "value1", expectErr: false},
+		{name: "valid_int", key: "key2", value: 42, expectErr: false},
+		{name: "valid_struct", key: "key3", value: TestNamedStruct{Value: "test", ID: 123}, expectErr: false},
+		{name: "nil_value", key: "key4", value: nil, expectErr: true, errMsg: "cannot encode nil value"},
+		{name: "nil_pointer", key: "key5", value: (*string)(nil), expectErr: true, errMsg: "cannot encode nil pointer"},
 	}
 
 	for _, tt := range tests {
@@ -68,7 +68,7 @@ func TestMemoryJsonMap_Set(t *testing.T) {
 func TestMemoryJsonMap_Get(t *testing.T) {
 	t.Parallel()
 
-	t.Run("ExistingKey", func(t *testing.T) {
+	t.Run("existing_key", func(t *testing.T) {
 		m := NewMemoryMap()
 		require.NoError(t, m.Set("key1", "value1"))
 
@@ -79,7 +79,7 @@ func TestMemoryJsonMap_Get(t *testing.T) {
 		assert.Equal(t, "value1", result)
 	})
 
-	t.Run("NonExistentKey", func(t *testing.T) {
+	t.Run("missing_key", func(t *testing.T) {
 		m := NewMemoryMap()
 
 		var result string
@@ -89,7 +89,7 @@ func TestMemoryJsonMap_Get(t *testing.T) {
 		assert.Empty(t, result) // should remain unchanged
 	})
 
-	t.Run("TypeMismatch", func(t *testing.T) {
+	t.Run("type_mismatch", func(t *testing.T) {
 		m := NewMemoryMap()
 		require.NoError(t, m.Set("key", "string_value"))
 
@@ -101,7 +101,7 @@ func TestMemoryJsonMap_Get(t *testing.T) {
 		assert.Contains(t, err.Error(), "type but got")
 	})
 
-	t.Run("Overflow", func(t *testing.T) {
+	t.Run("overflow", func(t *testing.T) {
 		m := NewMemoryMap()
 
 		tests := []struct {
@@ -110,12 +110,12 @@ func TestMemoryJsonMap_Get(t *testing.T) {
 			getPtr   interface{}
 			errMsg   string
 		}{
-			{"Int8Overflow", int64(math.MaxInt8 + 1), new(int8), "int8 overflow"},
-			{"Uint32Overflow", uint64(math.MaxUint32 + 1), new(uint32), "uint32 overflow"},
-			{"Uint16Overflow", uint64(math.MaxUint16 + 1), new(uint16), "uint16 overflow"},
-			{"Uint8Overflow", uint64(math.MaxUint8 + 1), new(uint8), "uint8 overflow"},
-			{"Float32Overflow", math.MaxFloat64, new(float32), "float32 overflow"},
-			{"Complex64Overflow", complex128(complex(math.MaxFloat64, math.MaxFloat64)), new(complex64), "complex"},
+			{"int8", int64(math.MaxInt8 + 1), new(int8), "int8 overflow"},
+			{"uint32", uint64(math.MaxUint32 + 1), new(uint32), "uint32 overflow"},
+			{"uint16", uint64(math.MaxUint16 + 1), new(uint16), "uint16 overflow"},
+			{"uint8", uint64(math.MaxUint8 + 1), new(uint8), "uint8 overflow"},
+			{"float32", math.MaxFloat64, new(float32), "float32 overflow"},
+			{"complex64", complex128(complex(math.MaxFloat64, math.MaxFloat64)), new(complex64), "complex"},
 		}
 
 		for _, tt := range tests {
@@ -203,29 +203,29 @@ func TestMemoryJsonMap_DataTypes(t *testing.T) {
 		value interface{}
 		delta float64 // for float comparisons using InDelta
 	}{
-		{name: "String", value: "test string"},
-		{name: "Int", value: 42},
-		{name: "Int8", value: int8(127)},
-		{name: "Int16", value: int16(32767)},
-		{name: "Int32", value: int32(2147483647)},
-		{name: "Int64", value: int64(9223372036854775807)},
-		{name: "Uint", value: uint(42)},
-		{name: "Uint8", value: uint8(255)},
-		{name: "Uint16", value: uint16(65535)},
-		{name: "Uint32", value: uint32(4294967295)},
-		{name: "Uint64", value: uint64(18446744073709551615)},
-		{name: "Float32", value: float32(3.14159), delta: 0.0001},
-		{name: "Float64", value: 3.141592653589793, delta: 1e-8},
-		{name: "Complex64", value: complex64(3.14 + 2.71i)},
-		{name: "Complex128", value: complex128(3.141592653589793 + 2.718281828459045i)},
-		{name: "Bool_True", value: true},
-		{name: "Bool_False", value: false},
-		{name: "IntSlice", value: []int{1, 2, 3, 4, 5}},
-		{name: "StringSlice", value: []string{"a", "b", "c"}},
-		{name: "ByteSlice", value: []byte{1, 2, 3, 4, 5}},
-		{name: "StringMap", value: map[string]string{"key1": "value1", "key2": "value2"}},
-		{name: "IntMap", value: map[string]int{"key1": 1, "key2": 2}},
-		{name: "Struct", value: TestNamedStruct{Value: "test", ID: 123, Float: 3.14, Bool: true}},
+		{name: "string", value: "test string"},
+		{name: "int", value: 42},
+		{name: "int8", value: int8(127)},
+		{name: "int16", value: int16(32767)},
+		{name: "int32", value: int32(2147483647)},
+		{name: "int64", value: int64(9223372036854775807)},
+		{name: "uint", value: uint(42)},
+		{name: "uint8", value: uint8(255)},
+		{name: "uint16", value: uint16(65535)},
+		{name: "uint32", value: uint32(4294967295)},
+		{name: "uint64", value: uint64(18446744073709551615)},
+		{name: "float32", value: float32(3.14159), delta: 0.0001},
+		{name: "float64", value: 3.141592653589793, delta: 1e-8},
+		{name: "complex64", value: complex64(3.14 + 2.71i)},
+		{name: "complex128", value: complex128(3.141592653589793 + 2.718281828459045i)},
+		{name: "bool_true", value: true},
+		{name: "bool_false", value: false},
+		{name: "int_slice", value: []int{1, 2, 3, 4, 5}},
+		{name: "string_slice", value: []string{"a", "b", "c"}},
+		{name: "byte_slice", value: []byte{1, 2, 3, 4, 5}},
+		{name: "string_map", value: map[string]string{"key1": "value1", "key2": "value2"}},
+		{name: "int_map", value: map[string]int{"key1": 1, "key2": 2}},
+		{name: "struct", value: TestNamedStruct{Value: "test", ID: 123, Float: 3.14, Bool: true}},
 	}
 
 	for _, tc := range testCases {
@@ -552,7 +552,7 @@ func TestMemoryJsonMap_SetItemMap(t *testing.T) {
 }
 
 func TestMemoryJsonMap_DecodeValue(t *testing.T) {
-	t.Run("InvalidBoolEncoding", func(t *testing.T) {
+	t.Run("invalid_bool", func(t *testing.T) {
 		t.Parallel()
 		m := &memoryJsonMap{
 			data: make(map[string]dataItem),
@@ -575,7 +575,7 @@ func TestMemoryJsonMap_EncodeValue(t *testing.T) {
 	t.Parallel()
 	m := NewMemoryMap()
 
-	t.Run("Array", func(t *testing.T) {
+	t.Run("array", func(t *testing.T) {
 		// Test array (not slice)
 		arr := [3]int{1, 2, 3}
 		require.NoError(t, m.Set("array", arr))
@@ -587,7 +587,7 @@ func TestMemoryJsonMap_EncodeValue(t *testing.T) {
 		assert.Equal(t, arr, retrieved)
 	})
 
-	t.Run("EmptyArray", func(t *testing.T) {
+	t.Run("empty_array", func(t *testing.T) {
 		// Test empty array
 		emptyArr := [0]int{}
 		require.NoError(t, m.Set("empty_array", emptyArr))
@@ -604,7 +604,7 @@ func TestMemoryJsonMap_StripZeroFields(t *testing.T) {
 	t.Parallel()
 	m := NewMemoryMap()
 
-	t.Run("NilVsEmptySlice", func(t *testing.T) {
+	t.Run("nil_vs_empty_slice", func(t *testing.T) {
 		// Test with nil slice vs empty slice
 		type SliceStruct struct {
 			NilSlice   []string
@@ -627,7 +627,7 @@ func TestMemoryJsonMap_StripZeroFields(t *testing.T) {
 		assert.Empty(t, retrieved.EmptySlice)
 	})
 
-	t.Run("NilVsEmptyMap", func(t *testing.T) {
+	t.Run("nil_vs_empty_map", func(t *testing.T) {
 		// Test with nil map vs empty map
 		type MapStruct struct {
 			NilMap   map[string]int
@@ -661,7 +661,7 @@ type testNamedBool bool
 func TestMemoryJsonMap_NamedTypes(t *testing.T) {
 	t.Parallel()
 
-	t.Run("NamedUint8", func(t *testing.T) {
+	t.Run("uint8", func(t *testing.T) {
 		t.Parallel()
 		m := NewMemoryMap()
 
@@ -675,7 +675,7 @@ func TestMemoryJsonMap_NamedTypes(t *testing.T) {
 		assert.Equal(t, original, retrieved)
 	})
 
-	t.Run("NamedInt", func(t *testing.T) {
+	t.Run("int", func(t *testing.T) {
 		t.Parallel()
 		m := NewMemoryMap()
 
@@ -689,7 +689,7 @@ func TestMemoryJsonMap_NamedTypes(t *testing.T) {
 		assert.Equal(t, original, retrieved)
 	})
 
-	t.Run("NamedString", func(t *testing.T) {
+	t.Run("string", func(t *testing.T) {
 		t.Parallel()
 		m := NewMemoryMap()
 
@@ -703,7 +703,7 @@ func TestMemoryJsonMap_NamedTypes(t *testing.T) {
 		assert.Equal(t, original, retrieved)
 	})
 
-	t.Run("NamedFloat", func(t *testing.T) {
+	t.Run("float", func(t *testing.T) {
 		t.Parallel()
 		m := NewMemoryMap()
 
@@ -717,7 +717,7 @@ func TestMemoryJsonMap_NamedTypes(t *testing.T) {
 		assert.InDelta(t, float64(original), float64(retrieved), 1e-8)
 	})
 
-	t.Run("NamedBool", func(t *testing.T) {
+	t.Run("bool", func(t *testing.T) {
 		t.Parallel()
 		m := NewMemoryMap()
 
@@ -735,7 +735,7 @@ func TestMemoryJsonMap_NamedTypes(t *testing.T) {
 func TestMemoryJsonMap_PointerPrimitives(t *testing.T) {
 	t.Parallel()
 
-	t.Run("PointerUint8", func(t *testing.T) {
+	t.Run("uint8", func(t *testing.T) {
 		t.Parallel()
 		m := NewMemoryMap()
 
@@ -749,7 +749,7 @@ func TestMemoryJsonMap_PointerPrimitives(t *testing.T) {
 		assert.Equal(t, val, retrieved)
 	})
 
-	t.Run("PointerInt", func(t *testing.T) {
+	t.Run("int", func(t *testing.T) {
 		t.Parallel()
 		m := NewMemoryMap()
 
@@ -763,7 +763,7 @@ func TestMemoryJsonMap_PointerPrimitives(t *testing.T) {
 		assert.Equal(t, val, retrieved)
 	})
 
-	t.Run("PointerString", func(t *testing.T) {
+	t.Run("string", func(t *testing.T) {
 		t.Parallel()
 		m := NewMemoryMap()
 
@@ -777,7 +777,7 @@ func TestMemoryJsonMap_PointerPrimitives(t *testing.T) {
 		assert.Equal(t, val, retrieved)
 	})
 
-	t.Run("PointerFloat64", func(t *testing.T) {
+	t.Run("float64", func(t *testing.T) {
 		t.Parallel()
 		m := NewMemoryMap()
 
@@ -791,7 +791,7 @@ func TestMemoryJsonMap_PointerPrimitives(t *testing.T) {
 		assert.InDelta(t, val, retrieved, 1e-8)
 	})
 
-	t.Run("PointerBool", func(t *testing.T) {
+	t.Run("bool", func(t *testing.T) {
 		t.Parallel()
 		m := NewMemoryMap()
 
@@ -821,7 +821,7 @@ func TestMemoryJsonMap_UnsupportedType(t *testing.T) {
 }
 
 func TestMemoryJsonMap_ErrorTypes(t *testing.T) {
-	t.Run("EncodingError_NilValue", func(t *testing.T) {
+	t.Run("encoding_nil_value", func(t *testing.T) {
 		t.Parallel()
 		m := NewMemoryMap()
 
@@ -835,7 +835,7 @@ func TestMemoryJsonMap_ErrorTypes(t *testing.T) {
 		assert.Contains(t, encodingErr.Error(), "test_key")
 	})
 
-	t.Run("EncodingError_NilPointer", func(t *testing.T) {
+	t.Run("encoding_nil_pointer", func(t *testing.T) {
 		t.Parallel()
 		m := NewMemoryMap()
 
@@ -849,7 +849,7 @@ func TestMemoryJsonMap_ErrorTypes(t *testing.T) {
 		assert.Contains(t, encodingErr.Message, "cannot encode nil pointer")
 	})
 
-	t.Run("TypeMismatchError_WrongType", func(t *testing.T) {
+	t.Run("type_mismatch_wrong_type", func(t *testing.T) {
 		t.Parallel()
 		m := NewMemoryMap()
 
@@ -867,7 +867,7 @@ func TestMemoryJsonMap_ErrorTypes(t *testing.T) {
 		assert.Contains(t, typeMismatchErr.Error(), "string_key")
 	})
 
-	t.Run("TypeMismatchError_Overflow", func(t *testing.T) {
+	t.Run("type_mismatch_overflow", func(t *testing.T) {
 		t.Parallel()
 		m := NewMemoryMap()
 
@@ -884,7 +884,7 @@ func TestMemoryJsonMap_ErrorTypes(t *testing.T) {
 		assert.Contains(t, typeMismatchErr.Message, "overflow")
 	})
 
-	t.Run("ValidationError_InvalidBoolValue", func(t *testing.T) {
+	t.Run("validation_invalid_bool", func(t *testing.T) {
 		t.Parallel()
 		m := &memoryJsonMap{
 			data: make(map[string]dataItem),
@@ -905,7 +905,7 @@ func TestMemoryJsonMap_ErrorTypes(t *testing.T) {
 		assert.Contains(t, validationErr.Message, "unexpected encoded bool value")
 	})
 
-	t.Run("ErrorTypes_DistinctChecking", func(t *testing.T) {
+	t.Run("distinct_error_types", func(t *testing.T) {
 		t.Parallel()
 		m := NewMemoryMap()
 
