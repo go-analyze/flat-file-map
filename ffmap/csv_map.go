@@ -201,6 +201,42 @@ func (kv *KeyValueCSV) Commit() error {
 	return kv.commitTo(file)
 }
 
+// structFieldUnion takes unmarshalled struct objects and returns the sorted union of field names
+// plus a per-field reflect.Kind used for zero-value substitution when an item omits a field.
+// Fields whose kinds differ across items become reflect.Ptr so encoded to null rather than a wrong-type zero.
+func structFieldUnion(items []map[string]interface{}) ([]string, map[string]reflect.Kind) {
+	fieldKinds := make(map[string]reflect.Kind)
+	for _, item := range items {
+		for name, v := range item {
+			fieldType := reflect.ValueOf(v).Kind()
+			if current, ok := fieldKinds[name]; ok {
+				if zeroValue(current) != zeroValue(fieldType) {
+					fieldKinds[name] = reflect.Ptr
+				}
+			} else {
+				fieldKinds[name] = fieldType
+			}
+		}
+	}
+	sortedFieldNames := bulk.MapKeysSlice(fieldKinds)
+	slices.Sort(sortedFieldNames)
+	return sortedFieldNames, fieldKinds
+}
+
+// projectStructValues projects one unmarshalled struct object onto the header schema produced
+// by structFieldUnion, substituting zero values for absent fields.
+func projectStructValues(item map[string]interface{}, sortedFieldNames []string, fieldKinds map[string]reflect.Kind) []interface{} {
+	values := make([]interface{}, len(sortedFieldNames))
+	for i, fieldName := range sortedFieldNames {
+		if val, exists := item[fieldName]; exists {
+			values[i] = val
+		} else {
+			values[i] = zeroValue(fieldKinds[fieldName])
+		}
+	}
+	return values
+}
+
 // commitTo writes all current key-value pairs to the provided writer, sorted by data type then key.
 func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 	// sort keys so output is in a consistent order
@@ -223,81 +259,57 @@ func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 	if err := writer.Write([]string{currentFileVersion}); err != nil {
 		return err
 	}
-	var lastStructName string
-	var structFieldNames []string
-	var fieldNameTypes map[string]reflect.Kind
-	for i, key := range keys {
+	for i := 0; i < len(keys); i++ {
+		key := keys[i]
 		dataVal := kv.memoryMap.data[key]
-		if dataVal.dataType == dataStructJson {
-			if dataVal.structId != "" && dataVal.structId != lastStructName && i+1 < len(keys) && kv.memoryMap.data[keys[i+1]].structId == dataVal.structId {
-				// we have at least one more value of this type, so encode a header line
-				// first we need to inspect all fields of the struct, we need to check all instances
-				// because may have omitted default fields in specific instances
-				var allStructFieldNames [][]string
-				fieldNameTypes = make(map[string]reflect.Kind)
-				for i2 := i; i2 < len(keys); i2++ {
-					val2 := kv.memoryMap.data[keys[i2]]
-					if dataVal.structId != val2.structId {
-						break
-					}
-
-					var structValue map[string]interface{}
-					if err := json.Unmarshal([]byte(val2.value), &structValue); err != nil {
-						return err
-					}
-					allStructFieldNames = append(allStructFieldNames, bulk.MapKeysSlice(structValue))
-					// track the field type, needed to fill in default values for structs which had default values omitted
-					for name := range structValue {
-						fieldType := reflect.ValueOf(structValue[name]).Kind()
-						if current, ok := fieldNameTypes[name]; ok {
-							if zeroValue(current) != zeroValue(fieldType) {
-								// on type mismatch we set to pointer to encode a `null` for empty fields
-								// This is an interface or any field which accepts multiple types
-								fieldNameTypes[name] = reflect.Ptr
-							}
-						} else {
-							fieldNameTypes[name] = fieldType
-						}
-					}
-				}
-				structFieldNames = sliceUniqueUnion(allStructFieldNames)
-				slices.Sort(structFieldNames) // sort for consistency
-				lastStructName = dataVal.structId
-
-				if err := writer.Write(append([]string{strconv.Itoa(dataStructHeader), dataVal.structId}, structFieldNames...)); err != nil {
-					return err
-				}
-			}
-
-			if dataVal.structId != "" && dataVal.structId == lastStructName { // append value only
-				var structValue map[string]interface{}
-				if err := json.Unmarshal([]byte(dataVal.value), &structValue); err != nil {
-					return err
-				}
-				values := make([]interface{}, len(structFieldNames))
-				for valueIdx, fieldName := range structFieldNames {
-					if val, exists := structValue[fieldName]; exists {
-						values[valueIdx] = val
-					} else { // Substitute with default based on field's type
-						values[valueIdx] = zeroValue(fieldNameTypes[fieldName])
-					}
-				}
-
-				if valueJsonBytes, err := json.Marshal(values); err != nil {
-					return err
-				} else if err := writer.Write([]string{strconv.Itoa(dataStructValue), key, string(valueJsonBytes)}); err != nil {
-					return err
-				}
-			} else { // no advantage to header encoding, append as single raw json line
-				if err := writer.Write([]string{strconv.Itoa(dataStructJson), key, dataVal.value}); err != nil {
-					return err
-				}
-			}
-		} else {
+		if dataVal.dataType != dataStructJson || dataVal.structId == "" {
 			if err := writer.Write([]string{strconv.Itoa(dataVal.dataType), key, dataVal.value}); err != nil {
 				return err
 			}
+			continue
 		}
+
+		// look ahead to find the run of items sharing this structId
+		runEnd := i + 1
+		for runEnd < len(keys) {
+			next := kv.memoryMap.data[keys[runEnd]]
+			if next.dataType != dataStructJson || next.structId != dataVal.structId {
+				break
+			}
+			runEnd++
+		}
+
+		if runEnd-i == 1 {
+			// no advantage to header encoding, append as single raw json line
+			if err := writer.Write([]string{strconv.Itoa(dataStructJson), key, dataVal.value}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		// unmarshal each item once for both header construction and value projection
+		items := make([]map[string]interface{}, runEnd-i)
+		for j := i; j < runEnd; j++ {
+			if err := json.Unmarshal([]byte(kv.memoryMap.data[keys[j]].value), &items[j-i]); err != nil {
+				return err
+			}
+		}
+		sortedFieldNames, fieldKinds := structFieldUnion(items)
+
+		if err := writer.Write(append([]string{strconv.Itoa(dataStructHeader), dataVal.structId}, sortedFieldNames...)); err != nil {
+			return err
+		}
+		for j := i; j < runEnd; j++ {
+			values := projectStructValues(items[j-i], sortedFieldNames, fieldKinds)
+			valueJsonBytes, err := json.Marshal(values)
+			if err != nil {
+				return err
+			}
+			if err := writer.Write([]string{strconv.Itoa(dataStructValue), keys[j], string(valueJsonBytes)}); err != nil {
+				return err
+			}
+		}
+		i = runEnd - 1
 	}
 
 	writer.Flush()

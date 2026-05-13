@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -1061,5 +1063,57 @@ func TestMemoryJsonMap_ErrorTypes(t *testing.T) {
 		require.ErrorAs(t, typeMismatchErr, &typeMismatchErr2)
 		assert.NotErrorAs(t, typeMismatchErr, &encodingErr2)
 		assert.NotErrorAs(t, typeMismatchErr, &validationErr2)
+	})
+}
+
+func TestComputeStructId(t *testing.T) {
+	t.Parallel()
+
+	type empty struct{}
+	type single struct{ A int }
+	type ab struct {
+		A int
+		B int
+	}
+	type ba struct {
+		B int
+		A int
+	}
+	type renamed struct {
+		A int
+		C int
+	}
+
+	t.Run("empty_struct", func(t *testing.T) {
+		got := computeStructId(reflect.TypeOf(empty{}))
+		assert.Equal(t, reflect.TypeOf(empty{}).String(), got)
+		assert.NotContains(t, got, "-")
+	})
+
+	t.Run("single_field_has_crc_suffix", func(t *testing.T) {
+		got := computeStructId(reflect.TypeOf(single{}))
+		base := reflect.TypeOf(single{}).String()
+		require.True(t, strings.HasPrefix(got, base+"-"))
+		suffix := strings.TrimPrefix(got, base+"-")
+		_, err := strconv.ParseUint(suffix, 36, 64)
+		require.NoError(t, err)
+	})
+
+	t.Run("field_order_changes_id", func(t *testing.T) {
+		idAB := computeStructId(reflect.TypeOf(ab{}))
+		idBA := computeStructId(reflect.TypeOf(ba{}))
+		assert.NotEqual(t, idAB, idBA)
+	})
+
+	t.Run("field_rename_changes_id", func(t *testing.T) {
+		idAB := computeStructId(reflect.TypeOf(ab{}))
+		idAC := computeStructId(reflect.TypeOf(renamed{}))
+		assert.NotEqual(t, idAB, idAC)
+	})
+
+	t.Run("spaces_stripped", func(t *testing.T) {
+		anonStruct := reflect.TypeOf(struct{ A int }{})
+		require.Contains(t, anonStruct.String(), " ")
+		assert.NotContains(t, computeStructId(anonStruct), " ")
 	})
 }

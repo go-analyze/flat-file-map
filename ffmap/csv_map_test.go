@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -3160,4 +3161,136 @@ func TestKeyValueCSV_ErrorTypes(t *testing.T) {
 		assert.NotErrorAs(t, validationErr, &encErr2)
 		assert.NotErrorAs(t, validationErr, &typeErr2)
 	})
+}
+
+func TestStructFieldUnion(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		items          []map[string]interface{}
+		expectedFields []string
+		expectedKinds  map[string]reflect.Kind
+	}{
+		{
+			name:           "empty_input",
+			items:          nil,
+			expectedFields: nil,
+			expectedKinds:  map[string]reflect.Kind{},
+		},
+		{
+			name: "single_item",
+			items: []map[string]interface{}{
+				{"a": float64(1), "b": "x"},
+			},
+			expectedFields: []string{"a", "b"},
+			expectedKinds: map[string]reflect.Kind{
+				"a": reflect.Float64,
+				"b": reflect.String,
+			},
+		},
+		{
+			name: "multi_item_disjoint_fields",
+			items: []map[string]interface{}{
+				{"b": "x", "a": float64(1)},
+				{"c": true},
+			},
+			expectedFields: []string{"a", "b", "c"},
+			expectedKinds: map[string]reflect.Kind{
+				"a": reflect.Float64,
+				"b": reflect.String,
+				"c": reflect.Bool,
+			},
+		},
+		{
+			name: "kind_mismatch_promotes_to_ptr",
+			items: []map[string]interface{}{
+				{"a": float64(1)},
+				{"a": "x"},
+			},
+			expectedFields: []string{"a"},
+			expectedKinds: map[string]reflect.Kind{
+				"a": reflect.Ptr,
+			},
+		},
+		{
+			name: "sorted_output",
+			items: []map[string]interface{}{
+				{"z": float64(1), "m": float64(2), "a": float64(3)},
+			},
+			expectedFields: []string{"a", "m", "z"},
+			expectedKinds: map[string]reflect.Kind{
+				"a": reflect.Float64,
+				"m": reflect.Float64,
+				"z": reflect.Float64,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fields, kinds := structFieldUnion(tt.items)
+
+			assert.Equal(t, tt.expectedFields, fields)
+			assert.True(t, slices.IsSorted(fields))
+			assert.Equal(t, tt.expectedKinds, kinds)
+		})
+	}
+}
+
+func TestProjectStructValues(t *testing.T) {
+	t.Parallel()
+
+	sortedFields := []string{"a", "b", "c"}
+	kinds := map[string]reflect.Kind{
+		"a": reflect.Float64,
+		"b": reflect.String,
+		"c": reflect.Bool,
+	}
+
+	tests := []struct {
+		name         string
+		item         map[string]interface{}
+		fields       []string
+		fieldKinds   map[string]reflect.Kind
+		expectValues []interface{}
+	}{
+		{
+			name:         "all_fields_present",
+			item:         map[string]interface{}{"a": float64(1), "b": "x", "c": true},
+			fields:       sortedFields,
+			fieldKinds:   kinds,
+			expectValues: []interface{}{float64(1), "x", true},
+		},
+		{
+			name:         "missing_field_uses_zero",
+			item:         map[string]interface{}{"a": float64(1)},
+			fields:       sortedFields,
+			fieldKinds:   kinds,
+			expectValues: []interface{}{float64(1), "", false},
+		},
+		{
+			name:   "ptr_kind_emits_nil",
+			item:   map[string]interface{}{},
+			fields: []string{"a"},
+			fieldKinds: map[string]reflect.Kind{
+				"a": reflect.Ptr,
+			},
+			expectValues: []interface{}{nil},
+		},
+		{
+			name:         "mixed_present_and_missing",
+			item:         map[string]interface{}{"b": "x"},
+			fields:       sortedFields,
+			fieldKinds:   kinds,
+			expectValues: []interface{}{float64(0), "x", false},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := projectStructValues(tt.item, tt.fields, tt.fieldKinds)
+			assert.Equal(t, tt.expectValues, got)
+		})
+	}
 }
