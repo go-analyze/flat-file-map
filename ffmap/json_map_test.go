@@ -649,6 +649,134 @@ func TestMemoryJsonMap_StripZeroFields(t *testing.T) {
 		assert.NotNil(t, mapRetrieved.EmptyMap)
 		assert.Empty(t, mapRetrieved.EmptyMap)
 	})
+
+	t.Run("interface_element_struct", func(t *testing.T) {
+		type S struct {
+			A int
+			B string
+		}
+
+		typedItem, err := encodeValue([]S{{A: 1}, {A: 2}})
+		require.NoError(t, err)
+
+		anyItem, err := encodeValue([]any{S{A: 1}, S{A: 2}})
+		require.NoError(t, err)
+
+		assert.Equal(t, typedItem.value, anyItem.value)
+	})
+
+	t.Run("interface_element_non_struct", func(t *testing.T) {
+		item, err := encodeValue([]any{"hello", 42, true})
+		require.NoError(t, err)
+		assert.Equal(t, `["hello",42,true]`, item.value)
+	})
+
+	t.Run("interface_element_struct_roundtrip", func(t *testing.T) {
+		type S struct {
+			A int
+			B string
+		}
+		mTyped := NewMemoryMap()
+		mAny := NewMemoryMap()
+
+		require.NoError(t, mTyped.Set("k", []S{{A: 1}, {A: 2}}))
+		require.NoError(t, mAny.Set("k", []any{S{A: 1}, S{A: 2}}))
+
+		var typedOut, anyOut []any
+		foundTyped, err := mTyped.Get("k", &typedOut)
+		require.NoError(t, err)
+		assert.True(t, foundTyped)
+		foundAny, err := mAny.Get("k", &anyOut)
+		require.NoError(t, err)
+		assert.True(t, foundAny)
+
+		assert.Equal(t, typedOut, anyOut)
+	})
+
+	t.Run("interface_element_non_struct_roundtrip", func(t *testing.T) {
+		m := NewMemoryMap()
+		original := []any{"hello", float64(42), true}
+		require.NoError(t, m.Set("k", original))
+
+		var retrieved []any
+		found, err := m.Get("k", &retrieved)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, original, retrieved)
+	})
+
+	t.Run("interface_element_zero_primitive_preserved", func(t *testing.T) {
+		item, err := encodeValue([]any{"", 0, false})
+		require.NoError(t, err)
+		assert.Equal(t, `["",0,false]`, item.value)
+	})
+
+	t.Run("interface_element_nested_slice", func(t *testing.T) {
+		type S struct {
+			A int
+			B string
+		}
+
+		typedItem, err := encodeValue([][]S{{{A: 1}, {A: 2}}})
+		require.NoError(t, err)
+
+		anyItem, err := encodeValue([]any{[]S{{A: 1}, {A: 2}}})
+		require.NoError(t, err)
+
+		assert.Equal(t, typedItem.value, anyItem.value)
+	})
+
+	t.Run("interface_element_nested_map", func(t *testing.T) {
+		type S struct {
+			A int
+			B string
+		}
+
+		typedItem, err := encodeValue([]map[string]S{{"k": {A: 1}}})
+		require.NoError(t, err)
+
+		anyItem, err := encodeValue([]any{map[string]S{"k": {A: 1}}})
+		require.NoError(t, err)
+
+		assert.Equal(t, typedItem.value, anyItem.value)
+	})
+
+	t.Run("interface_element_nested_array", func(t *testing.T) {
+		type S struct {
+			A int
+			B string
+		}
+
+		typedItem, err := encodeValue([][2]S{{{A: 1}, {A: 2}}})
+		require.NoError(t, err)
+
+		anyItem, err := encodeValue([]any{[2]S{{A: 1}, {A: 2}}})
+		require.NoError(t, err)
+
+		assert.Equal(t, typedItem.value, anyItem.value)
+	})
+
+	t.Run("interface_element_nested_slice_roundtrip", func(t *testing.T) {
+		type S struct {
+			A int
+			B string
+		}
+		mTyped := NewMemoryMap()
+		mAny := NewMemoryMap()
+
+		require.NoError(t, mTyped.Set("k", [][]S{{{A: 1}, {A: 2}}}))
+		require.NoError(t, mAny.Set("k", []any{[]S{{A: 1}, {A: 2}}}))
+
+		var typedOut, anyOut []any
+		foundTyped, err := mTyped.Get("k", &typedOut)
+		require.NoError(t, err)
+		assert.True(t, foundTyped)
+		foundAny, err := mAny.Get("k", &anyOut)
+		require.NoError(t, err)
+		assert.True(t, foundAny)
+
+		assert.Equal(t, typedOut, anyOut)
+	})
 }
 
 // Named type aliases for testing encoding of custom types based on primitives

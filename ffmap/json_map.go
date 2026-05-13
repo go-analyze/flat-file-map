@@ -200,6 +200,17 @@ func stripZeroFields(v reflect.Value) interface{} {
 		return stripZeroFields(elem)
 	}
 
+	// Interface holding a struct, pointer, or collection
+	// unwrap and recurse so the contents are processed as if directly-typed
+	if v.Kind() == reflect.Interface && !v.IsNil() {
+		elem := v.Elem()
+		elemKind := elem.Kind()
+		if elemKind == reflect.Struct || elemKind == reflect.Ptr ||
+			elemKind == reflect.Slice || elemKind == reflect.Map || elemKind == reflect.Array {
+			return stripZeroFields(elem)
+		}
+	}
+
 	switch v.Kind() {
 	case reflect.Struct:
 		out := make(map[string]interface{})
