@@ -2710,6 +2710,28 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 			expectedFileSizeTwo: 46,
 		},
 		{
+			name: "byte_slice_large",
+			value: []byte{
+				1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+				17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
+			},
+			expectedStrSize:     46,
+			expectedFileSizeOne: 62,
+			expectedFileSizeTwo: 118,
+		},
+		{
+			name: "byte_array_64",
+			value: [64]byte{
+				1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+				17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
+				33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
+				49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
+			},
+			expectedStrSize:     184,
+			expectedFileSizeOne: 198,
+			expectedFileSizeTwo: 390,
+		},
+		{
 			name:                "int_slice",
 			value:               []int{1, 2, 3, 4},
 			expectedStrSize:     9,
@@ -2743,6 +2765,19 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 		{
 			name: "struct_slice_five",
 			value: []TestNamedStruct{
+				{Value: "v0", ID: 0},
+				{Value: "v1", ID: 1},
+				{Value: "v2", ID: 2},
+				{Value: "v3", ID: 3},
+				{Value: "v4", ID: 4},
+			},
+			expectedStrSize:     254,
+			expectedFileSizeOne: 316,
+			expectedFileSizeTwo: 626,
+		},
+		{
+			name: "struct_array_five",
+			value: [5]TestNamedStruct{
 				{Value: "v0", ID: 0},
 				{Value: "v1", ID: 1},
 				{Value: "v2", ID: 2},
