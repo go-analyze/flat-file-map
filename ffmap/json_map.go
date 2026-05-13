@@ -1,13 +1,13 @@
 package ffmap
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"hash/crc32"
 	"math"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -63,21 +63,23 @@ func (kv *memoryJsonMap) Size() int {
 }
 
 // computeStructId returns a stable identity string for a struct-kind reflect.Type.
-// The id combines the type name with a CRC32 over field names so that field renames or
-// reorderings produce a different id while equivalent shapes share one.
+// The id combines the type name with a CRC32 over sorted field names so that field renames
+// produce a different id while reorderings of the same fields share one.
 func computeStructId(t reflect.Type) string {
-	// this id is only used for comparison but must remain consistent for a given file version
+	// this id is only used for comparison but should remain consistent for a given file version
 	id := strings.ReplaceAll(t.String(), " ", "")
 	if t.NumField() == 0 {
 		return id
 	}
-	// TODO - improve resilience by sorting fields
-	var combinedFieldName bytes.Buffer
+	// id grouping based on field names, sorted to be stable over minor refactors
+	fieldNames := make([]string, t.NumField())
 	for i := 0; i < t.NumField(); i++ {
-		combinedFieldName.WriteString(t.Field(i).Name)
+		fieldNames[i] = t.Field(i).Name
 	}
+	slices.Sort(fieldNames)
+	combinedFieldNames := strings.Join(fieldNames, ";")
 	crc32q := crc32.MakeTable(crc32.Castagnoli)
-	return id + "-" + strconv.FormatUint(uint64(crc32.Checksum(combinedFieldName.Bytes(), crc32q)), 36)
+	return id + "-" + strconv.FormatUint(uint64(crc32.Checksum([]byte(combinedFieldNames), crc32q)), 36)
 }
 
 // encodeValue converts a Go value into a dataItem for storage.

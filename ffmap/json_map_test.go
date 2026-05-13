@@ -1083,6 +1083,14 @@ func TestComputeStructId(t *testing.T) {
 		A int
 		C int
 	}
+	type abc struct {
+		AB int
+		C  int
+	}
+	type bc struct {
+		A  int
+		BC int
+	}
 
 	t.Run("empty_struct", func(t *testing.T) {
 		got := computeStructId(reflect.TypeOf(empty{}))
@@ -1099,10 +1107,22 @@ func TestComputeStructId(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("field_order_changes_id", func(t *testing.T) {
+	t.Run("field_order_preserves_id", func(t *testing.T) {
 		idAB := computeStructId(reflect.TypeOf(ab{}))
 		idBA := computeStructId(reflect.TypeOf(ba{}))
-		assert.NotEqual(t, idAB, idBA)
+		// type names differ but the crc suffix should match
+		assert.Equal(t,
+			strings.TrimPrefix(idAB, reflect.TypeOf(ab{}).String()),
+			strings.TrimPrefix(idBA, reflect.TypeOf(ba{}).String()))
+	})
+
+	t.Run("separator_prevents_ambiguity", func(t *testing.T) {
+		// without a separator, {"AB","C"} and {"A","BC"} would hash identically
+		idABC := computeStructId(reflect.TypeOf(abc{}))
+		idBC := computeStructId(reflect.TypeOf(bc{}))
+		assert.NotEqual(t,
+			strings.TrimPrefix(idABC, reflect.TypeOf(abc{}).String()),
+			strings.TrimPrefix(idBC, reflect.TypeOf(bc{}).String()))
 	})
 
 	t.Run("field_rename_changes_id", func(t *testing.T) {

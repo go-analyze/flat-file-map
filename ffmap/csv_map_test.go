@@ -2613,7 +2613,7 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 			},
 			expectedStrSize:     135,
 			expectedFileSizeOne: 175,
-			expectedFileSizeTwo: 326,
+			expectedFileSizeTwo: 325,
 		},
 		{
 			name: "pointer_struct",
@@ -2624,7 +2624,7 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 			},
 			expectedStrSize:     41,
 			expectedFileSizeOne: 65,
-			expectedFileSizeTwo: 127,
+			expectedFileSizeTwo: 128,
 		},
 		{
 			name: "struct_embedded",
@@ -2648,7 +2648,7 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 			},
 			expectedStrSize:     11,
 			expectedFileSizeOne: 29,
-			expectedFileSizeTwo: 79,
+			expectedFileSizeTwo: 78,
 		},
 		{
 			name: "deeply_nested_map",
@@ -2670,7 +2670,7 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 			value:               TestCustomMarshaler{Value: "test", Encoded: json.RawMessage(`"custom"`)},
 			expectedStrSize:     35,
 			expectedFileSizeOne: 57,
-			expectedFileSizeTwo: 114,
+			expectedFileSizeTwo: 113,
 		},
 		{
 			name: "embedded_custom_marshaler",
@@ -2832,7 +2832,7 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 		require.NoError(t, SetMapValues(m, values))
 
 		require.NoError(t, m.Commit())
-		verifyFileSize(t, tmpFile, 670)
+		verifyFileSize(t, tmpFile, 669)
 	})
 
 	t.Run("two_struct_slices_size", func(t *testing.T) {

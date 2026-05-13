@@ -23,7 +23,8 @@ type KeyValueCSV struct {
 	commitMod int
 }
 
-const currentFileVersion = "ver:0"
+const fileVersion0 = "ver:0"
+const currentFileVersion = "ver:1"
 
 // loadFromDisk updates the map with data from disk.
 func (kv *KeyValueCSV) loadFromDisk() error {
@@ -60,7 +61,7 @@ func (kv *KeyValueCSV) loadRecords(records [][]string) error {
 	var currStructValueNames []string
 	for i, record := range records {
 		if i == 0 { // header line
-			if len(record) < 1 || currentFileVersion != record[0] {
+			if len(record) < 1 || (currentFileVersion != record[0] && fileVersion0 != record[0]) {
 				return &ValidationError{Message: "invalid header line: " + strings.Join(record, ",")}
 			}
 			continue
