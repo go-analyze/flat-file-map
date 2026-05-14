@@ -3,7 +3,7 @@ module github.com/go-analyze/flat-file-map
 go 1.23
 
 require (
-	github.com/go-analyze/bulk v0.1.3
+	github.com/go-analyze/bulk v0.1.4
 	github.com/stretchr/testify v1.11.1
 )
 
