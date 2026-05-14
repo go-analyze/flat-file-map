@@ -1137,3 +1137,42 @@ func TestComputeStructId(t *testing.T) {
 		assert.NotContains(t, computeStructId(anonStruct), " ")
 	})
 }
+
+func TestComputeElementStructId(t *testing.T) {
+	t.Parallel()
+
+	type other struct{ X int }
+	type bytes []byte
+
+	namedStructId := "[]" + computeStructId(reflect.TypeOf(TestNamedStruct{}))
+	otherStructId := "[]" + computeStructId(reflect.TypeOf(other{}))
+
+	cases := []struct {
+		name  string
+		value interface{}
+		want  string
+	}{
+		{"concrete_struct_slice", []TestNamedStruct{{}, {}}, namedStructId},
+		{"pointer_struct_slice", []*TestNamedStruct{{}, {}}, namedStructId},
+		{"double_pointer_slice", []**TestNamedStruct{}, ""},
+		{"int_slice", []int{1, 2}, ""},
+		{"byte_slice", []byte{1, 2}, ""},
+		{"named_byte_alias", bytes{1, 2}, ""},
+		{"string_slice", []string{"a"}, ""},
+		{"map_slice", []map[string]int{{"a": 1}}, ""},
+		{"interface_homogeneous_struct", []any{TestNamedStruct{}, TestNamedStruct{}}, namedStructId},
+		{"interface_homogeneous_ptr_mixed", []any{&TestNamedStruct{}, TestNamedStruct{}}, namedStructId},
+		{"interface_mixed_structs", []any{TestNamedStruct{}, other{}}, "[]any"},
+		{"interface_mixed_kinds", []any{TestNamedStruct{}, "string"}, "[]any"},
+		{"interface_empty", []any{}, ""},
+		{"interface_all_nil", []any{nil, nil}, ""},
+		{"array_struct", [2]TestNamedStruct{{}, {}}, namedStructId},
+		{"distinct_struct_id", []other{{}, {}}, otherStructId},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := computeElementStructId(reflect.ValueOf(tc.value))
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}

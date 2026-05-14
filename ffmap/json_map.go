@@ -52,6 +52,11 @@ const (
 	dataArraySlice
 	//10,mapKey,"{"key":"value"} // value encoded as json
 	dataMap
+	//11,key,structId,fieldName1,fieldName2...
+	dataArraySliceHeader // Used only in CSV, defines a header for one slice-of-struct value (size + diff optimization)
+	//12,"[jsonValue1, jsonValue2...]" // value encoded as json array with position matching header field positions
+	//12,null                          // nil element
+	dataArraySliceValue // Used only in CSV, defines one element row under the preceding slice header
 )
 
 // Size returns the number of key-value pairs stored in the map.
@@ -60,6 +65,56 @@ func (kv *memoryJsonMap) Size() int {
 	defer kv.rwLock.RUnlock()
 
 	return len(kv.data)
+}
+
+// computeElementStructId returns a namespaced identity for a slice's element type, or
+// empty string when no struct identity can be assigned.
+// Pointer-to-struct elements are unwrapped one level. Interface element types trigger a
+// runtime walk; homogeneous-on-struct contents share the typed slice's id, mixed contents
+// return the "[]any" sentinel, empty/all-nil return empty.
+func computeElementStructId(val reflect.Value) string {
+	elemType := val.Type().Elem()
+	switch elemType.Kind() {
+	case reflect.Struct:
+		return "[]" + computeStructId(elemType)
+	case reflect.Ptr:
+		if elemType.Elem().Kind() == reflect.Struct {
+			return "[]" + computeStructId(elemType.Elem())
+		}
+		return ""
+	case reflect.Interface:
+		var concreteType reflect.Type
+		var sawNonNil bool
+		for i := 0; i < val.Len(); i++ {
+			elem := val.Index(i)
+			if elem.IsNil() {
+				continue
+			}
+			inner := elem.Elem()
+			if inner.Kind() == reflect.Ptr {
+				if inner.IsNil() {
+					continue
+				}
+				inner = inner.Elem()
+			}
+			if inner.Kind() != reflect.Struct {
+				return "[]any"
+			}
+			t := inner.Type()
+			if !sawNonNil {
+				concreteType = t
+				sawNonNil = true
+			} else if t != concreteType {
+				return "[]any"
+			}
+		}
+		if !sawNonNil {
+			return ""
+		}
+		return "[]" + computeStructId(concreteType)
+	default:
+		return ""
+	}
 }
 
 // computeStructId returns a stable identity string for a struct-kind reflect.Type.
@@ -85,8 +140,7 @@ func computeStructId(t reflect.Type) string {
 // encodeValue converts a Go value into a dataItem for storage.
 func encodeValue(value interface{}) (*dataItem, error) {
 	var dataType int
-	var structId string
-	var strVal string
+	var structId, strVal string
 	switch v := value.(type) {
 	case nil:
 		return nil, &EncodingError{Message: "cannot encode nil value"}
@@ -123,6 +177,7 @@ func encodeValue(value interface{}) (*dataItem, error) {
 		switch val.Kind() {
 		case reflect.Slice, reflect.Array:
 			dataType = dataArraySlice
+			structId = computeElementStructId(val)
 		case reflect.Map:
 			dataType = dataMap
 		case reflect.String:
@@ -202,9 +257,9 @@ func stripZeroFields(v reflect.Value) interface{} {
 			return nil
 		}
 		elem := v.Elem()
-		// For slices and maps we want to process the element normally,
-		// so only shortcut if the pointer points to a non-collection empty value.
-		if elem.Kind() != reflect.Slice && elem.Kind() != reflect.Map && isZeroValue(elem) {
+		// Shortcut preserves explicit non-nil pointers to zero primitives; struct/slice/map kinds
+		// descend so their stripped form is byte-minimal (and round-trips identically)
+		if elem.Kind() != reflect.Slice && elem.Kind() != reflect.Map && elem.Kind() != reflect.Struct && isZeroValue(elem) {
 			return v.Interface()
 		}
 		return stripZeroFields(elem)

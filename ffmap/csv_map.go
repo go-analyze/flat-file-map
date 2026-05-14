@@ -55,10 +55,35 @@ func (kv *KeyValueCSV) loadFromReader(r io.Reader) error {
 	return kv.loadRecords(records)
 }
 
+// sliceLoadCtx accumulates type-12 element rows under one open type-11 header,
+// flushed into a single dataArraySlice dataItem when the next non-type-12 record (or EOF) arrives.
+type sliceLoadCtx struct {
+	open     bool
+	key      string
+	structId string
+	fields   []string
+	entries  []json.RawMessage
+}
+
+func (c *sliceLoadCtx) flush(data map[string]dataItem) error {
+	if !c.open {
+		return nil
+	}
+	jsonBytes, err := json.Marshal(c.entries)
+	if err != nil {
+		return err
+	}
+	data[c.key] = dataItem{dataType: dataArraySlice, structId: c.structId, value: string(jsonBytes)}
+	c.open = false
+	c.entries = nil
+	return nil
+}
+
 // loadRecords processes parsed CSV records and populates the memory map.
 func (kv *KeyValueCSV) loadRecords(records [][]string) error {
 	var currStructName string
 	var currStructValueNames []string
+	var sliceCtx sliceLoadCtx
 	for i, record := range records {
 		if i == 0 { // header line
 			if len(record) < 1 || (currentFileVersion != record[0] && fileVersion0 != record[0]) {
@@ -72,6 +97,12 @@ func (kv *KeyValueCSV) loadRecords(records [][]string) error {
 		dataType, err := strconv.Atoi(record[0])
 		if err != nil {
 			return &ValidationError{Message: "unexpected data type: %s" + record[0], Err: err}
+		}
+		if dataType != dataArraySliceValue {
+			// any non-type-12 record terminates the current slice block
+			if err := sliceCtx.flush(kv.memoryMap.data); err != nil {
+				return err
+			}
 		}
 		switch dataType {
 		case dataStructHeader:
@@ -99,6 +130,41 @@ func (kv *KeyValueCSV) loadRecords(records [][]string) error {
 				return err
 			}
 			kv.memoryMap.data[record[1]] = dataItem{dataType: dataStructJson, structId: currStructName, value: string(encodedStruct)}
+		case dataArraySliceHeader:
+			if len(record) < 3 {
+				return &ValidationError{Message: fmt.Sprintf("unexpected csv slice header column count: %v, line: %v", len(record), i+1)}
+			}
+			sliceCtx = sliceLoadCtx{
+				open:     true,
+				key:      record[1],
+				structId: record[2],
+				fields:   slices.Clone(record[3:]),
+			}
+		case dataArraySliceValue:
+			if len(record) != 2 {
+				return &ValidationError{Message: fmt.Sprintf("unexpected csv slice value column count: %v, line: %v", len(record), i+1)}
+			} else if !sliceCtx.open {
+				return &ValidationError{Message: fmt.Sprintf("slice value record without preceding header, line: %v", i+1)}
+			}
+			if record[1] == "null" {
+				sliceCtx.entries = append(sliceCtx.entries, json.RawMessage("null"))
+				continue
+			}
+			var values []json.RawMessage
+			if err := json.Unmarshal([]byte(record[1]), &values); err != nil {
+				return err
+			} else if len(values) != len(sliceCtx.fields) {
+				return &ValidationError{Message: fmt.Sprintf("slice value count mismatch %v/%v under header key=%v, line: %v", len(values), len(sliceCtx.fields), sliceCtx.key, i+1)}
+			}
+			entry := make(map[string]json.RawMessage, len(sliceCtx.fields))
+			for j, name := range sliceCtx.fields {
+				entry[name] = values[j]
+			}
+			entryBytes, err := json.Marshal(entry)
+			if err != nil {
+				return err
+			}
+			sliceCtx.entries = append(sliceCtx.entries, entryBytes)
 		default:
 			if len(record) != 3 {
 				return &ValidationError{Message: fmt.Sprintf("unexpected csv db column count: %v, type: %v, line: %v", len(record), dataType, i+1)}
@@ -106,7 +172,7 @@ func (kv *KeyValueCSV) loadRecords(records [][]string) error {
 			kv.memoryMap.data[record[1]] = dataItem{dataType: dataType, value: record[2]}
 		}
 	}
-	return nil
+	return sliceCtx.flush(kv.memoryMap.data)
 }
 
 // Size returns the number of key-value pairs stored in the map.
@@ -238,6 +304,59 @@ func projectStructValues(item map[string]interface{}, sortedFieldNames []string,
 	return values
 }
 
+// deferredSlice carries the prepared state for one exploded slice block,
+// emitted after the main walk so type-11/12 records cluster at the end of the file.
+type deferredSlice struct {
+	key          string
+	structId     string
+	sortedFields []string
+	fieldKinds   map[string]reflect.Kind
+	parsed       []map[string]interface{} // nil entry represents a JSON null element
+}
+
+// prepareExplodedSlice evaluates eligibility and builds the projected rows for one slice item.
+// Returns ok=false (and a nil bundle) if any eligibility check fails; the caller falls back to type-9.
+func prepareExplodedSlice(key string, item dataItem) (*deferredSlice, bool) {
+	if item.structId == "" || item.structId == "[]any" {
+		return nil, false
+	}
+	// fast bail, need at least two struct objects to be worth exploding
+	if strings.Count(item.value, "{") < 2 {
+		return nil, false
+	}
+	var rawEntries []json.RawMessage
+	if err := json.Unmarshal([]byte(item.value), &rawEntries); err != nil || len(rawEntries) < 2 {
+		return nil, false
+	}
+	parsed := make([]map[string]interface{}, len(rawEntries))
+	var nonNilCount int
+	for i, raw := range rawEntries {
+		if string(raw) == "null" {
+			continue // parsed[i] stays nil
+		}
+		var m map[string]interface{}
+		if err := json.Unmarshal(raw, &m); err != nil || m == nil {
+			return nil, false
+		}
+		parsed[i] = m
+		nonNilCount++
+	}
+	if nonNilCount < 2 {
+		return nil, false
+	}
+	sortedFields, fieldKinds := structFieldUnion(parsed)
+	if len(sortedFields) == 0 {
+		return nil, false
+	}
+	return &deferredSlice{
+		key:          key,
+		structId:     item.structId,
+		sortedFields: sortedFields,
+		fieldKinds:   fieldKinds,
+		parsed:       parsed,
+	}, true
+}
+
 // commitTo writes all current key-value pairs to the provided writer, sorted by data type then key.
 func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 	// sort keys so output is in a consistent order
@@ -260,9 +379,19 @@ func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 	if err := writer.Write([]string{currentFileVersion}); err != nil {
 		return err
 	}
+	var deferred []*deferredSlice
 	for i := 0; i < len(keys); i++ {
 		key := keys[i]
 		dataVal := kv.memoryMap.data[key]
+
+		if dataVal.dataType == dataArraySlice {
+			if ds, ok := prepareExplodedSlice(key, dataVal); ok {
+				deferred = append(deferred, ds)
+				continue
+			}
+			// ineligible, fall through to inline type-9 encoding
+		}
+
 		if dataVal.dataType != dataStructJson || dataVal.structId == "" {
 			if err := writer.Write([]string{strconv.Itoa(dataVal.dataType), key, dataVal.value}); err != nil {
 				return err
@@ -311,6 +440,36 @@ func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 			}
 		}
 		i = runEnd - 1
+	}
+
+	// emit deferred exploded slices grouped by (structId, key)
+	slices.SortFunc(deferred, func(a, b *deferredSlice) int {
+		if a.structId != b.structId {
+			return strings.Compare(a.structId, b.structId)
+		}
+		return strings.Compare(a.key, b.key)
+	})
+	for _, ds := range deferred {
+		header := append([]string{strconv.Itoa(dataArraySliceHeader), ds.key, ds.structId}, ds.sortedFields...)
+		if err := writer.Write(header); err != nil {
+			return err
+		}
+		for _, m := range ds.parsed {
+			if m == nil {
+				if err := writer.Write([]string{strconv.Itoa(dataArraySliceValue), "null"}); err != nil {
+					return err
+				}
+				continue
+			}
+			values := projectStructValues(m, ds.sortedFields, ds.fieldKinds)
+			valueJsonBytes, err := json.Marshal(values)
+			if err != nil {
+				return err
+			}
+			if err := writer.Write([]string{strconv.Itoa(dataArraySliceValue), string(valueJsonBytes)}); err != nil {
+				return err
+			}
+		}
 	}
 
 	writer.Flush()

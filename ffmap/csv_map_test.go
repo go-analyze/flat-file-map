@@ -716,8 +716,7 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 		require.NoError(t, mOrig.Set("k:slice", slice))
 		require.NoError(t, mOrig.Commit())
 
-		// locks the pre-slice-optimization file size; this is expected to drop
-		// when the future type-12/type-11 exploded slice encoding lands.
+		// singleton (type 2) + exploded slice (type 11/12) layout
 		verifyFileSize(t, tmpFile, 224)
 
 		reloaded, err := OpenReadOnlyCSV(tmpFile)
@@ -827,6 +826,501 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 			assert.Equal(t, string(expectedValue.Embedded.Encoded), string(actualValue.Embedded.Encoded))
 			assert.Equal(t, expectedValue.Extra, actualValue.Extra)
 		}
+	})
+}
+
+type sliceOptEmptyable struct {
+	A int
+	B int
+}
+
+type sliceOptOther struct {
+	X int
+}
+
+type sliceOptStringMarshaler struct {
+	S string
+}
+
+func (m sliceOptStringMarshaler) MarshalJSON() ([]byte, error) {
+	return json.Marshal(m.S)
+}
+
+type sliceOptNamedBytes []byte
+
+type sliceOptOuter struct {
+	Name  string
+	Inner []int
+}
+
+// writeRawFile creates a CSV file with the literal contents provided.
+func writeRawFile(t *testing.T, contents string) string {
+	t.Helper()
+
+	f, err := os.CreateTemp("", "ffmap-raw.*.csv")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.Remove(f.Name()) })
+	_, err = f.WriteString(contents)
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	return f.Name()
+}
+
+func TestKeyValueCSV_SliceOptimization(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nil_element_in_slice", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		slice := []*TestNamedStruct{{Value: "a", ID: 1}, nil, {Value: "c", ID: 3}}
+		require.NoError(t, m.Set("k", slice))
+		require.NoError(t, m.Commit())
+
+		contents, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+		assert.Contains(t, string(contents), "\n11,k,")
+		assert.Contains(t, string(contents), "\n12,null\n")
+
+		reloaded, err := OpenReadOnlyCSV(tmpFile)
+		require.NoError(t, err)
+		var got []*TestNamedStruct
+		found, err := reloaded.Get("k", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		require.Len(t, got, 3)
+		assert.Equal(t, "a", got[0].Value)
+		assert.Nil(t, got[1])
+		assert.Equal(t, "c", got[2].Value)
+	})
+
+	t.Run("length_one_stays_type9", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		require.NoError(t, m.Set("k", []TestNamedStruct{{Value: "solo", ID: 1}}))
+		require.NoError(t, m.Commit())
+
+		contents, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+		assert.NotContains(t, string(contents), "\n11,")
+		assert.Contains(t, string(contents), "\n9,k,")
+	})
+
+	t.Run("single_nonnil_stays_type9", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		require.NoError(t, m.Set("k", []*TestNamedStruct{{Value: "one", ID: 1}, nil}))
+		require.NoError(t, m.Commit())
+
+		contents, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+		assert.NotContains(t, string(contents), "\n11,")
+		assert.Contains(t, string(contents), "\n9,k,")
+	})
+
+	t.Run("all_zero_ptr_struct_falls_back", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		require.NoError(t, m.Set("k", []*sliceOptEmptyable{{}, {}}))
+		require.NoError(t, m.Commit())
+
+		contents, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+		assert.NotContains(t, string(contents), "\n11,")
+		assert.Contains(t, string(contents), "\n9,k,")
+	})
+
+	t.Run("all_zero_struct_falls_back", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		require.NoError(t, m.Set("k", []sliceOptEmptyable{{}, {}}))
+		require.NoError(t, m.Commit())
+
+		contents, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+		assert.NotContains(t, string(contents), "\n11,")
+		assert.Contains(t, string(contents), "\n9,k,")
+	})
+
+	t.Run("mid_slice_edit_single_line_diff", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		original := []TestNamedStruct{
+			{Value: "a", ID: 1},
+			{Value: "b", ID: 2},
+			{Value: "c", ID: 3},
+		}
+		require.NoError(t, m.Set("k", original))
+		require.NoError(t, m.Commit())
+		before, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+
+		modified := slices.Clone(original)
+		modified[1] = TestNamedStruct{Value: "B!", ID: 22}
+		require.NoError(t, m.Set("k", modified))
+		require.NoError(t, m.Commit())
+		after, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+
+		beforeLines := strings.Split(string(before), "\n")
+		afterLines := strings.Split(string(after), "\n")
+		require.Len(t, afterLines, len(beforeLines))
+		var diffCount int
+		for i := range beforeLines {
+			if beforeLines[i] != afterLines[i] {
+				diffCount++
+			}
+		}
+		assert.Equal(t, 1, diffCount)
+	})
+
+	t.Run("nested_slice_not_recursive", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		outer := []sliceOptOuter{
+			{Name: "a", Inner: []int{1, 2, 3}},
+			{Name: "b", Inner: []int{4, 5}},
+		}
+		require.NoError(t, m.Set("k", outer))
+		require.NoError(t, m.Commit())
+
+		contents, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+		assert.Equal(t, 1, strings.Count(string(contents), "\n11,"))
+		assert.Contains(t, string(contents), "[1,2,3]")
+		assert.Contains(t, string(contents), "[4,5]")
+
+		reloaded, err := OpenReadOnlyCSV(tmpFile)
+		require.NoError(t, err)
+		var got []sliceOptOuter
+		found, err := reloaded.Get("k", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, outer, got)
+	})
+
+	t.Run("byte_slice_stays_type9", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		require.NoError(t, m.Set("k", []byte{1, 2, 3, 4}))
+		require.NoError(t, m.Commit())
+
+		contents, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+		assert.NotContains(t, string(contents), "\n11,")
+		assert.Contains(t, string(contents), "\n9,k,")
+	})
+
+	t.Run("named_byte_alias_stays_type9", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		require.NoError(t, m.Set("k", sliceOptNamedBytes{1, 2, 3}))
+		require.NoError(t, m.Commit())
+
+		contents, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+		assert.NotContains(t, string(contents), "\n11,")
+		assert.Contains(t, string(contents), "\n9,k,")
+	})
+
+	t.Run("heterogeneous_any_falls_back", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		require.NoError(t, m.Set("k", []any{TestNamedStruct{ID: 1}, sliceOptOther{X: 9}}))
+		require.NoError(t, m.Commit())
+
+		assert.Equal(t, "[]any", m.memoryMap.data["k"].structId)
+		contents, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+		assert.NotContains(t, string(contents), "\n11,")
+		assert.Contains(t, string(contents), "\n9,k,")
+	})
+
+	t.Run("heterogeneous_any_mixed_kinds_falls_back", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		require.NoError(t, m.Set("k", []any{TestNamedStruct{ID: 1}, "scalar"}))
+		require.NoError(t, m.Commit())
+
+		assert.Equal(t, "[]any", m.memoryMap.data["k"].structId)
+		contents, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+		assert.NotContains(t, string(contents), "\n11,")
+	})
+
+	t.Run("homogeneous_any_matches_typed", func(t *testing.T) {
+		_, mTyped := makeTestMap(t)
+		require.NoError(t, mTyped.Set("k", []TestNamedStruct{{Value: "x", ID: 1}, {Value: "y", ID: 2}}))
+		require.NoError(t, mTyped.Commit())
+
+		_, mAny := makeTestMap(t)
+		require.NoError(t, mAny.Set("k", []any{TestNamedStruct{Value: "x", ID: 1}, TestNamedStruct{Value: "y", ID: 2}}))
+		require.NoError(t, mAny.Commit())
+
+		bytesTyped, err := os.ReadFile(mTyped.filename)
+		require.NoError(t, err)
+		bytesAny, err := os.ReadFile(mAny.filename)
+		require.NoError(t, err)
+		assert.Equal(t, string(bytesTyped), string(bytesAny))
+	})
+
+	t.Run("homogeneous_any_ptr_mixed", func(t *testing.T) {
+		_, m := makeTestMap(t)
+		require.NoError(t, m.Set("k", []any{&TestNamedStruct{Value: "x", ID: 1}, TestNamedStruct{Value: "y", ID: 2}}))
+		require.NoError(t, m.Commit())
+
+		contents, err := os.ReadFile(m.filename)
+		require.NoError(t, err)
+		assert.Contains(t, string(contents), "\n11,k,[]ffmap.TestNamedStruct-")
+	})
+
+	t.Run("nonobject_marshaler_falls_back", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		require.NoError(t, m.Set("k", []sliceOptStringMarshaler{{S: "one"}, {S: "two"}}))
+		require.NoError(t, m.Commit())
+
+		contents, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+		assert.NotContains(t, string(contents), "\n11,")
+		assert.Contains(t, string(contents), "\n9,k,")
+	})
+
+	t.Run("mixed_marshaler_falls_back", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		require.NoError(t, m.Set("k", []any{
+			TestNamedStruct{Value: "obj", ID: 1},
+			sliceOptStringMarshaler{S: "string"},
+		}))
+		require.NoError(t, m.Commit())
+
+		contents, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+		assert.NotContains(t, string(contents), "\n11,")
+	})
+
+	t.Run("eof_flush_type12", func(t *testing.T) {
+		body := "ver:1\n" +
+			"11,k,[]ffmap.TestNamedStruct-cijsoo,ID,Value\n" +
+			"12,\"[1,\"\"a\"\"]\"\n" +
+			"12,\"[2,\"\"b\"\"]\"\n"
+		path := writeRawFile(t, body)
+		loaded, err := OpenReadOnlyCSV(path)
+		require.NoError(t, err)
+		var got []TestNamedStruct
+		found, err := loaded.Get("k", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, []TestNamedStruct{{Value: "a", ID: 1}, {Value: "b", ID: 2}}, got)
+	})
+
+	t.Run("stray_type12_rejected", func(t *testing.T) {
+		body := "ver:1\n12,\"[1,\"\"a\"\"]\"\n"
+		path := writeRawFile(t, body)
+		_, err := OpenCSV(path)
+		require.Error(t, err)
+		var ve *ValidationError
+		require.ErrorAs(t, err, &ve)
+		assert.Contains(t, ve.Message, "without preceding header")
+	})
+
+	t.Run("type12_field_count_mismatch", func(t *testing.T) {
+		body := "ver:1\n" +
+			"11,k,[]ffmap.TestNamedStruct-cijsoo,ID,Value\n" +
+			"12,\"[1]\"\n"
+		path := writeRawFile(t, body)
+		_, err := OpenCSV(path)
+		require.Error(t, err)
+		var ve *ValidationError
+		require.ErrorAs(t, err, &ve)
+		assert.Contains(t, ve.Message, "value count mismatch")
+		assert.Contains(t, ve.Message, "key=k")
+	})
+
+	t.Run("type11_zero_values_loads_empty", func(t *testing.T) {
+		body := "ver:1\n11,k,[]ffmap.TestNamedStruct-cijsoo,ID,Value\n"
+		path := writeRawFile(t, body)
+		m, err := OpenCSV(path)
+		require.NoError(t, err)
+		var got []TestNamedStruct
+		found, err := m.Get("k", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Empty(t, got)
+	})
+
+	t.Run("type11_one_value_loads_single", func(t *testing.T) {
+		body := "ver:1\n" +
+			"11,k,[]ffmap.TestNamedStruct-cijsoo,ID,Value\n" +
+			"12,\"[7,\"\"x\"\"]\"\n"
+		path := writeRawFile(t, body)
+		m, err := OpenCSV(path)
+		require.NoError(t, err)
+		var got []TestNamedStruct
+		found, err := m.Get("k", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, []TestNamedStruct{{Value: "x", ID: 7}}, got)
+	})
+
+	t.Run("two_consecutive_type11_headers", func(t *testing.T) {
+		body := "ver:1\n" +
+			"11,kA,[]ffmap.TestNamedStruct-cijsoo,ID,Value\n" +
+			"11,kB,[]ffmap.TestNamedStruct-cijsoo,ID,Value\n" +
+			"12,\"[2,\"\"b\"\"]\"\n"
+		path := writeRawFile(t, body)
+		m, err := OpenCSV(path)
+		require.NoError(t, err)
+		var gotA []TestNamedStruct
+		foundA, err := m.Get("kA", &gotA)
+		require.NoError(t, err)
+		assert.True(t, foundA)
+		assert.Empty(t, gotA)
+		var gotB []TestNamedStruct
+		foundB, err := m.Get("kB", &gotB)
+		require.NoError(t, err)
+		assert.True(t, foundB)
+		assert.Equal(t, []TestNamedStruct{{Value: "b", ID: 2}}, gotB)
+	})
+
+	t.Run("ver0_load_then_commit_no_change", func(t *testing.T) {
+		original := "ver:0\n4,k,42\n"
+		path := writeRawFile(t, original)
+		m, err := OpenCSV(path)
+		require.NoError(t, err)
+		require.NoError(t, m.Commit())
+		got, err := os.ReadFile(path)
+		require.NoError(t, err)
+		assert.Equal(t, original, string(got))
+	})
+
+	t.Run("reload_no_op_byte_stable_mixed", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		require.NoError(t, m.Set("k:singleton", TestNamedStruct{Value: "solo", ID: 1}))
+		require.NoError(t, m.Set("k:a", TestNamedStruct{Value: "a", ID: 10}))
+		require.NoError(t, m.Set("k:b", TestNamedStruct{Value: "b", ID: 20}))
+		require.NoError(t, m.Set("k:rawslice", []byte{1, 2, 3}))
+		require.NoError(t, m.Set("k:slice", []TestNamedStruct{{Value: "p", ID: 100}, {Value: "q", ID: 200}}))
+		require.NoError(t, m.Commit())
+		before, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+
+		m2, err := OpenCSV(tmpFile)
+		require.NoError(t, err)
+		require.NoError(t, m2.Commit())
+		after, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+		assert.Equal(t, string(before), string(after))
+	})
+
+	t.Run("reload_unrelated_set_byte_stable_mixed", func(t *testing.T) {
+		tmpFile, m := makeTestMap(t)
+		require.NoError(t, m.Set("k:singleton", TestNamedStruct{Value: "solo", ID: 1}))
+		require.NoError(t, m.Set("k:a", TestNamedStruct{Value: "a", ID: 10}))
+		require.NoError(t, m.Set("k:b", TestNamedStruct{Value: "b", ID: 20}))
+		require.NoError(t, m.Set("k:rawslice", []byte{1, 2, 3}))
+		require.NoError(t, m.Set("k:slice", []TestNamedStruct{{Value: "p", ID: 100}, {Value: "q", ID: 200}}))
+		require.NoError(t, m.Commit())
+		before, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+
+		m2, err := OpenCSV(tmpFile)
+		require.NoError(t, err)
+		require.NoError(t, m2.Set("k:trigger", 99))
+		require.NoError(t, m2.Commit())
+		after, err := os.ReadFile(tmpFile)
+		require.NoError(t, err)
+		for _, line := range strings.Split(string(before), "\n") {
+			if line == "" || line == "ver:1" {
+				continue
+			}
+			assert.Contains(t, string(after), line)
+		}
+	})
+
+	t.Run("ver0_upgrade_roundtrip", func(t *testing.T) {
+		body := "ver:0\n" +
+			"3,k:str,hello\n" +
+			"4,k:int,42\n" +
+			"2,k:struct,\"{\"\"ID\"\":1,\"\"Value\"\":\"\"solo\"\"}\"\n" +
+			"9,k:slice,\"[{\"\"ID\"\":1,\"\"Value\"\":\"\"a\"\"},{\"\"ID\"\":2,\"\"Value\"\":\"\"b\"\"}]\"\n"
+		path := writeRawFile(t, body)
+		m, err := OpenCSV(path)
+		require.NoError(t, err)
+		require.NoError(t, m.Set("k:trigger", 1))
+		require.NoError(t, m.Commit())
+
+		reloaded, err := OpenReadOnlyCSV(path)
+		require.NoError(t, err)
+		var s string
+		found, err := reloaded.Get("k:str", &s)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, "hello", s)
+
+		var i int
+		found, err = reloaded.Get("k:int", &i)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, 42, i)
+
+		var single TestNamedStruct
+		found, err = reloaded.Get("k:struct", &single)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, "solo", single.Value)
+		assert.Equal(t, 1, single.ID)
+
+		var slice []TestNamedStruct
+		found, err = reloaded.Get("k:slice", &slice)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, []TestNamedStruct{{Value: "a", ID: 1}, {Value: "b", ID: 2}}, slice)
+
+		// the reloaded slice carries no structId and must remain type-9 on commit
+		final, err := os.ReadFile(path)
+		require.NoError(t, err)
+		assert.Contains(t, string(final), "\n9,k:slice,")
+		assert.NotContains(t, string(final), "\n11,k:slice,")
+	})
+
+	t.Run("ver0_upgrade_then_reset_explodes", func(t *testing.T) {
+		body := "ver:0\n" +
+			"9,k:slice,\"[{\"\"ID\"\":1,\"\"Value\"\":\"\"a\"\"},{\"\"ID\"\":2,\"\"Value\"\":\"\"b\"\"}]\"\n"
+		path := writeRawFile(t, body)
+		m, err := OpenCSV(path)
+		require.NoError(t, err)
+
+		var slice []TestNamedStruct
+		found, err := m.Get("k:slice", &slice)
+		require.NoError(t, err)
+		assert.True(t, found)
+		require.NoError(t, m.Set("k:slice", slice))
+		require.NoError(t, m.Commit())
+
+		final, err := os.ReadFile(path)
+		require.NoError(t, err)
+		assert.Contains(t, string(final), "\n11,k:slice,")
+		assert.NotContains(t, string(final), "\n9,k:slice,")
+	})
+}
+
+func TestKeyValueCSV_ArrayOptimization(t *testing.T) {
+	t.Parallel()
+
+	t.Run("ver0_upgrade_then_reset_explodes", func(t *testing.T) {
+		body := "ver:0\n" +
+			"9,k:arr,\"[{\"\"ID\"\":1,\"\"Value\"\":\"\"a\"\"},{\"\"ID\"\":2,\"\"Value\"\":\"\"b\"\"}]\"\n"
+		path := writeRawFile(t, body)
+		m, err := OpenCSV(path)
+		require.NoError(t, err)
+
+		var arr [2]TestNamedStruct
+		found, err := m.Get("k:arr", &arr)
+		require.NoError(t, err)
+		assert.True(t, found)
+		require.NoError(t, m.Set("k:arr", arr))
+		require.NoError(t, m.Commit())
+
+		final, err := os.ReadFile(path)
+		require.NoError(t, err)
+		assert.Contains(t, string(final), "\n11,k:arr,")
+		assert.NotContains(t, string(final), "\n9,k:arr,")
+
+		// reload + no-op commit is byte-stable
+		m2, err := OpenCSV(path)
+		require.NoError(t, err)
+		require.NoError(t, m2.Commit())
+		afterReload, err := os.ReadFile(path)
+		require.NoError(t, err)
+		assert.Equal(t, string(final), string(afterReload))
 	})
 }
 
@@ -2773,8 +3267,8 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 				{Value: "v4", ID: 4},
 			},
 			expectedStrSize:     254,
-			expectedFileSizeOne: 316,
-			expectedFileSizeTwo: 626,
+			expectedFileSizeOne: 262,
+			expectedFileSizeTwo: 518,
 		},
 		{
 			name: "struct_array_five",
@@ -2786,8 +3280,8 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 				{Value: "v4", ID: 4},
 			},
 			expectedStrSize:     254,
-			expectedFileSizeOne: 316,
-			expectedFileSizeTwo: 626,
+			expectedFileSizeOne: 262,
+			expectedFileSizeTwo: 518,
 		},
 	}
 
@@ -2851,7 +3345,7 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 		require.NoError(t, m.Set("k:sliceB", sliceB))
 		require.NoError(t, m.Commit())
 
-		verifyFileSize(t, tmpFile, 392)
+		verifyFileSize(t, tmpFile, 381)
 	})
 
 	t.Run("mixed_field_types", func(t *testing.T) {
