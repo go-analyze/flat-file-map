@@ -96,7 +96,7 @@ func (kv *KeyValueCSV) loadRecords(records [][]string) error {
 
 		dataType, err := strconv.Atoi(record[0])
 		if err != nil {
-			return &ValidationError{Message: "unexpected data type: %s" + record[0], Err: err}
+			return &ValidationError{Message: "unexpected data type: " + record[0], Err: err}
 		}
 		if dataType != dataArraySliceValue {
 			// any non-type-12 record terminates the current slice block

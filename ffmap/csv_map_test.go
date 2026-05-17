@@ -846,8 +846,6 @@ func (m sliceOptStringMarshaler) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.S)
 }
 
-type sliceOptNamedBytes []byte
-
 type sliceOptOuter struct {
 	Name  string
 	Inner []int
@@ -991,7 +989,7 @@ func TestKeyValueCSV_SliceOptimization(t *testing.T) {
 		assert.Equal(t, outer, got)
 	})
 
-	t.Run("byte_slice_stays_type9", func(t *testing.T) {
+	t.Run("byte_slice_uses_type13", func(t *testing.T) {
 		tmpFile, m := makeTestMap(t)
 		require.NoError(t, m.Set("k", []byte{1, 2, 3, 4}))
 		require.NoError(t, m.Commit())
@@ -999,18 +997,8 @@ func TestKeyValueCSV_SliceOptimization(t *testing.T) {
 		contents, err := os.ReadFile(tmpFile)
 		require.NoError(t, err)
 		assert.NotContains(t, string(contents), "\n11,")
-		assert.Contains(t, string(contents), "\n9,k,")
-	})
-
-	t.Run("named_byte_alias_stays_type9", func(t *testing.T) {
-		tmpFile, m := makeTestMap(t)
-		require.NoError(t, m.Set("k", sliceOptNamedBytes{1, 2, 3}))
-		require.NoError(t, m.Commit())
-
-		contents, err := os.ReadFile(tmpFile)
-		require.NoError(t, err)
-		assert.NotContains(t, string(contents), "\n11,")
-		assert.Contains(t, string(contents), "\n9,k,")
+		assert.NotContains(t, string(contents), "\n9,k,")
+		assert.Contains(t, string(contents), "\n13,k,")
 	})
 
 	t.Run("heterogeneous_any_falls_back", func(t *testing.T) {
@@ -1290,6 +1278,40 @@ func TestKeyValueCSV_SliceOptimization(t *testing.T) {
 		assert.Contains(t, string(final), "\n11,k:slice,")
 		assert.NotContains(t, string(final), "\n9,k:slice,")
 	})
+
+	t.Run("ver0_byte_slice_base64_reads_into_bytes", func(t *testing.T) {
+		// ver:0 stored []byte as a type-9 dataArraySlice with a JSON string containing base64
+		body := "ver:0\n" +
+			"9,k:bytes,\"\"\"AQIDBA==\"\"\"\n"
+		path := writeRawFile(t, body)
+		m, err := OpenReadOnlyCSV(path)
+		require.NoError(t, err)
+
+		var got []byte
+		found, err := m.Get("k:bytes", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, []byte{1, 2, 3, 4}, got)
+	})
+
+	t.Run("ver0_byte_slice_rewrites_as_type13_on_set", func(t *testing.T) {
+		body := "ver:0\n" +
+			"9,k:bytes,\"\"\"AQIDBA==\"\"\"\n"
+		path := writeRawFile(t, body)
+		m, err := OpenCSV(path)
+		require.NoError(t, err)
+
+		var got []byte
+		_, err = m.Get("k:bytes", &got)
+		require.NoError(t, err)
+		require.NoError(t, m.Set("k:bytes", got))
+		require.NoError(t, m.Commit())
+
+		final, err := os.ReadFile(path)
+		require.NoError(t, err)
+		assert.Contains(t, string(final), "\n13,k:bytes,")
+		assert.NotContains(t, string(final), "\n9,k:bytes,")
+	})
 }
 
 func TestKeyValueCSV_ArrayOptimization(t *testing.T) {
@@ -1518,12 +1540,12 @@ func TestKeyValueCSV_EncodeValueType(t *testing.T) {
 		{
 			name:             "byte_array",
 			value:            [4]byte{1, 2, 3, 4},
-			expectedDataType: dataArraySlice,
+			expectedDataType: dataBytes,
 		},
 		{
 			name:             "byte_slice",
 			value:            []byte{1, 2, 3, 4},
-			expectedDataType: dataArraySlice,
+			expectedDataType: dataBytes,
 		},
 		{
 			name:             "int_array",
@@ -3200,9 +3222,9 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 		{
 			name:                "byte_slice",
 			value:               []byte{1, 2, 3, 4},
-			expectedStrSize:     10,
-			expectedFileSizeOne: 26,
-			expectedFileSizeTwo: 46,
+			expectedStrSize:     5,
+			expectedFileSizeOne: 18,
+			expectedFileSizeTwo: 30,
 		},
 		{
 			name: "byte_slice_large",
@@ -3210,9 +3232,9 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 				1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
 				17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
 			},
-			expectedStrSize:     46,
-			expectedFileSizeOne: 62,
-			expectedFileSizeTwo: 118,
+			expectedStrSize:     40,
+			expectedFileSizeOne: 53,
+			expectedFileSizeTwo: 100,
 		},
 		{
 			name: "byte_array_64",
@@ -3222,9 +3244,9 @@ func TestKeyValueCSV_EncodingSize(t *testing.T) {
 				33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
 				49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
 			},
-			expectedStrSize:     184,
-			expectedFileSizeOne: 198,
-			expectedFileSizeTwo: 390,
+			expectedStrSize:     80,
+			expectedFileSizeOne: 93,
+			expectedFileSizeTwo: 180,
 		},
 		{
 			name:                "int_slice",

@@ -1,6 +1,7 @@
 package ffmap
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"reflect"
@@ -252,6 +253,219 @@ func TestMemoryJsonMap_DataTypes(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMemoryJsonMap_ByteSlice(t *testing.T) {
+	t.Parallel()
+
+	t.Run("non_empty", func(t *testing.T) {
+		m := NewMemoryMap().(*memoryJsonMap)
+		require.NoError(t, m.Set("k", []byte{1, 2, 3, 4, 5}))
+
+		item, ok := m.data["k"]
+		require.True(t, ok)
+		assert.Equal(t, dataBytes, item.dataType)
+		assert.Empty(t, item.structId)
+		assert.NotEmpty(t, item.value)
+
+		var got []byte
+		found, err := m.Get("k", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, []byte{1, 2, 3, 4, 5}, got)
+	})
+
+	t.Run("empty", func(t *testing.T) {
+		m := NewMemoryMap().(*memoryJsonMap)
+		require.NoError(t, m.Set("k", []byte{}))
+
+		item, ok := m.data["k"]
+		require.True(t, ok)
+		assert.Equal(t, dataBytes, item.dataType)
+		assert.Empty(t, item.value)
+
+		var got []byte
+		found, err := m.Get("k", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.NotNil(t, got)
+		assert.Empty(t, got)
+	})
+
+	t.Run("nil_falls_through_to_slice", func(t *testing.T) {
+		m := NewMemoryMap().(*memoryJsonMap)
+		require.NoError(t, m.Set("k", []byte(nil)))
+
+		item, ok := m.data["k"]
+		require.True(t, ok)
+		assert.Equal(t, dataArraySlice, item.dataType)
+		assert.Equal(t, "null", item.value)
+
+		var got []byte
+		found, err := m.Get("k", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Nil(t, got)
+	})
+
+	t.Run("type_mismatch", func(t *testing.T) {
+		m := NewMemoryMap()
+		require.NoError(t, m.Set("k", []byte{1, 2, 3}))
+
+		var s string
+		_, err := m.Get("k", &s)
+		var tm *TypeMismatchError
+		require.ErrorAs(t, err, &tm)
+		assert.Equal(t, "k", tm.Key)
+
+		var ints []int
+		_, err = m.Get("k", &ints)
+		require.ErrorAs(t, err, &tm)
+	})
+
+	t.Run("pointer_to_slice", func(t *testing.T) {
+		m := NewMemoryMap().(*memoryJsonMap)
+		b := []byte{1, 2, 3, 4, 5}
+		require.NoError(t, m.Set("k", &b))
+
+		item, ok := m.data["k"]
+		require.True(t, ok)
+		assert.Equal(t, dataBytes, item.dataType)
+
+		var got []byte
+		found, err := m.Get("k", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, []byte{1, 2, 3, 4, 5}, got)
+	})
+
+	t.Run("pointer_to_nil_slice", func(t *testing.T) {
+		m := NewMemoryMap().(*memoryJsonMap)
+		b := []byte(nil)
+		require.NoError(t, m.Set("k", &b))
+
+		item, ok := m.data["k"]
+		require.True(t, ok)
+		assert.Equal(t, dataArraySlice, item.dataType)
+		assert.Equal(t, "null", item.value)
+
+		var got []byte
+		found, err := m.Get("k", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Nil(t, got)
+	})
+
+	t.Run("byte_array", func(t *testing.T) {
+		m := NewMemoryMap().(*memoryJsonMap)
+		require.NoError(t, m.Set("k", [4]byte{1, 2, 3, 4}))
+
+		item, ok := m.data["k"]
+		require.True(t, ok)
+		assert.Equal(t, dataBytes, item.dataType)
+
+		var got [4]byte
+		found, err := m.Get("k", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, [4]byte{1, 2, 3, 4}, got)
+	})
+
+	t.Run("pointer_to_byte_array", func(t *testing.T) {
+		m := NewMemoryMap().(*memoryJsonMap)
+		arr := [4]byte{9, 8, 7, 6}
+		require.NoError(t, m.Set("k", &arr))
+
+		item, ok := m.data["k"]
+		require.True(t, ok)
+		assert.Equal(t, dataBytes, item.dataType)
+
+		var got [4]byte
+		found, err := m.Get("k", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, [4]byte{9, 8, 7, 6}, got)
+	})
+
+	t.Run("byte_array_length_mismatch", func(t *testing.T) {
+		m := NewMemoryMap()
+		require.NoError(t, m.Set("k", [4]byte{1, 2, 3, 4}))
+
+		var got [3]byte
+		_, err := m.Get("k", &got)
+		var tm *TypeMismatchError
+		require.ErrorAs(t, err, &tm)
+		assert.Equal(t, "k", tm.Key)
+	})
+
+	t.Run("named_byte_slice", func(t *testing.T) {
+		type myBytes []byte
+		m := NewMemoryMap().(*memoryJsonMap)
+		original := myBytes{1, 2, 3}
+		require.NoError(t, m.Set("k", original))
+
+		item, ok := m.data["k"]
+		require.True(t, ok)
+		assert.Equal(t, dataBytes, item.dataType)
+
+		var got myBytes
+		found, err := m.Get("k", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, original, got)
+	})
+
+	t.Run("named_byte_array", func(t *testing.T) {
+		type Hash [32]byte
+		m := NewMemoryMap().(*memoryJsonMap)
+		var original Hash
+		for i := range original {
+			original[i] = byte(i)
+		}
+		require.NoError(t, m.Set("k", original))
+
+		item, ok := m.data["k"]
+		require.True(t, ok)
+		assert.Equal(t, dataBytes, item.dataType)
+
+		var got Hash
+		found, err := m.Get("k", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, original, got)
+	})
+}
+
+func TestMemoryJsonMap_RawMessage(t *testing.T) {
+	t.Parallel()
+
+	t.Run("object_stays_raw_json", func(t *testing.T) {
+		m := NewMemoryMap().(*memoryJsonMap)
+		raw := json.RawMessage(`{"hello":"world"}`)
+		require.NoError(t, m.Set("k", raw))
+
+		item, ok := m.data["k"]
+		require.True(t, ok)
+		assert.Equal(t, dataArraySlice, item.dataType)
+		assert.JSONEq(t, `{"hello":"world"}`, item.value)
+
+		var got json.RawMessage
+		found, err := m.Get("k", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.JSONEq(t, `{"hello":"world"}`, string(got))
+	})
+
+	t.Run("array_stays_raw_json", func(t *testing.T) {
+		m := NewMemoryMap().(*memoryJsonMap)
+		raw := json.RawMessage(`[1,2,3]`)
+		require.NoError(t, m.Set("k", raw))
+
+		item, ok := m.data["k"]
+		require.True(t, ok)
+		assert.Equal(t, dataArraySlice, item.dataType)
+		assert.Equal(t, `[1,2,3]`, item.value)
+	})
 }
 
 func TestMemoryJsonMap_ComplexStruct(t *testing.T) {

@@ -13,7 +13,12 @@ import (
 	"sync"
 
 	"github.com/go-analyze/bulk"
+	"github.com/go-analyze/encoding/base85"
 )
+
+// jsonRawMessageType identifies json.RawMessage so its raw JSON bytes are stored
+// verbatim instead of being Z85-encoded as opaque bytes.
+var jsonRawMessageType = reflect.TypeOf(json.RawMessage(nil))
 
 // memoryJsonMap provides a primarily in-memory key-value map.
 // This is primarily used for testing or building other map types.
@@ -57,6 +62,8 @@ const (
 	//12,"[jsonValue1, jsonValue2...]" // value encoded as json array with position matching header field positions
 	//12,null                          // nil element
 	dataArraySliceValue // Used only in CSV, defines one element row under the preceding slice header
+	//13,mapKey,z85String
+	dataBytes // top-level []byte stored as base85 Z85 (denser than JSON base64; alphabet needs no CSV escaping)
 )
 
 // Size returns the number of key-value pairs stored in the map.
@@ -144,6 +151,12 @@ func encodeValue(value interface{}) (*dataItem, error) {
 	switch v := value.(type) {
 	case nil:
 		return nil, &EncodingError{Message: "cannot encode nil value"}
+	case []byte:
+		if v == nil {
+			// nil []byte stays in the JSON slice path so it round-trips as nil (distinct from empty)
+			return &dataItem{dataType: dataArraySlice, value: "null"}, nil
+		}
+		return &dataItem{dataType: dataBytes, value: base85.Z85.EncodeToString(v)}, nil
 	case string:
 		dataType = dataString
 		strVal = v
@@ -176,6 +189,21 @@ func encodeValue(value interface{}) (*dataItem, error) {
 		}
 		switch val.Kind() {
 		case reflect.Slice, reflect.Array:
+			// json.RawMessage keeps its raw JSON form so the file stays human-readable
+			if val.Type().Elem().Kind() == reflect.Uint8 && val.Type() != jsonRawMessageType {
+				if val.Kind() == reflect.Slice && val.IsNil() {
+					return &dataItem{dataType: dataArraySlice, value: "null"}, nil
+				}
+				var b []byte
+				if val.Kind() == reflect.Slice {
+					b = val.Bytes()
+				} else {
+					// arrays passed by value are not addressable; copy into a slice
+					b = make([]byte, val.Len())
+					reflect.Copy(reflect.ValueOf(b), val)
+				}
+				return &dataItem{dataType: dataBytes, value: base85.Z85.EncodeToString(b)}, nil
+			}
 			dataType = dataArraySlice
 			structId = computeElementStructId(val)
 		case reflect.Map:
@@ -492,6 +520,28 @@ func decodeValue(dataType int, encodedValue string, value interface{}) error {
 			ve.SetBool(false)
 		default:
 			return &ValidationError{Message: "unexpected encoded bool value: " + encodedValue}
+		}
+	case dataBytes:
+		decoded, err := base85.Z85.DecodeString(encodedValue)
+		if err != nil {
+			return err
+		}
+		switch ve.Kind() {
+		case reflect.Slice:
+			if ve.Type().Elem().Kind() != reflect.Uint8 {
+				return &TypeMismatchError{Message: fmt.Sprintf("expected []byte type but got %v", ve.Type())}
+			}
+			ve.SetBytes(decoded)
+		case reflect.Array:
+			if ve.Type().Elem().Kind() != reflect.Uint8 {
+				return &TypeMismatchError{Message: fmt.Sprintf("expected [N]byte type but got %v", ve.Type())}
+			}
+			if ve.Len() != len(decoded) {
+				return &TypeMismatchError{Message: fmt.Sprintf("byte array length mismatch: stored %d, target %d", len(decoded), ve.Len())}
+			}
+			reflect.Copy(ve, reflect.ValueOf(decoded))
+		default:
+			return &TypeMismatchError{Message: fmt.Sprintf("expected []byte or [N]byte type but got %v", ve.Type())}
 		}
 	case dataArraySlice, dataMap, dataStructJson:
 		// Zero values to ensure that fields not in the json are zeroed out

@@ -4,6 +4,7 @@ go 1.23
 
 require (
 	github.com/go-analyze/bulk v0.1.4
+	github.com/go-analyze/encoding v0.1.2
 	github.com/stretchr/testify v1.11.1
 )
 
