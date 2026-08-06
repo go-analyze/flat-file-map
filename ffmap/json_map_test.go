@@ -538,6 +538,97 @@ func TestMemoryJsonMap_EmbeddedStruct(t *testing.T) {
 	assert.Equal(t, original, retrieved)
 }
 
+type TestShadowInner struct {
+	Name   string
+	Detail string
+}
+
+type TestShadowOuterFirst struct {
+	Name string
+	TestShadowInner
+}
+
+type TestShadowOuterLast struct {
+	TestShadowInner
+	Name string
+}
+
+// jsonRoundTrip provides the encoding/json ground truth for shadowed embedded fields.
+func jsonRoundTrip[T any](t *testing.T, value T) T {
+	t.Helper()
+	jsonBytes, err := json.Marshal(value)
+	require.NoError(t, err)
+	var result T
+	require.NoError(t, json.Unmarshal(jsonBytes, &result))
+	return result
+}
+
+func TestMemoryJsonMap_EmbeddedStructShadowing(t *testing.T) {
+	t.Parallel()
+
+	t.Run("outer_field_first", func(t *testing.T) {
+		m := NewMemoryMap()
+		original := TestShadowOuterFirst{
+			Name:            "outer",
+			TestShadowInner: TestShadowInner{Name: "inner", Detail: "detail"},
+		}
+		require.NoError(t, m.Set("k", original))
+
+		var retrieved TestShadowOuterFirst
+		found, err := m.Get("k", &retrieved)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, jsonRoundTrip(t, original), retrieved)
+		assert.Equal(t, "outer", retrieved.Name)
+		assert.Equal(t, "detail", retrieved.Detail)
+	})
+	t.Run("outer_field_last", func(t *testing.T) {
+		m := NewMemoryMap()
+		original := TestShadowOuterLast{
+			TestShadowInner: TestShadowInner{Name: "inner", Detail: "detail"},
+			Name:            "outer",
+		}
+		require.NoError(t, m.Set("k", original))
+
+		var retrieved TestShadowOuterLast
+		found, err := m.Get("k", &retrieved)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, jsonRoundTrip(t, original), retrieved)
+		assert.Equal(t, "outer", retrieved.Name)
+		assert.Equal(t, "detail", retrieved.Detail)
+	})
+	t.Run("zero_outer_field", func(t *testing.T) {
+		m := NewMemoryMap()
+		original := TestShadowOuterFirst{
+			TestShadowInner: TestShadowInner{Name: "inner", Detail: "detail"},
+		}
+		require.NoError(t, m.Set("k", original))
+
+		var retrieved TestShadowOuterFirst
+		found, err := m.Get("k", &retrieved)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, jsonRoundTrip(t, original), retrieved)
+		assert.Empty(t, retrieved.Name)
+		assert.Empty(t, retrieved.TestShadowInner.Name)
+	})
+	t.Run("no_conflict", func(t *testing.T) {
+		m := NewMemoryMap()
+		original := TestStructEmbedded{
+			TestNamedStruct: TestNamedStruct{Value: "embedded", ID: 123},
+			DirectStr:       "direct",
+		}
+		require.NoError(t, m.Set("k", original))
+
+		var retrieved TestStructEmbedded
+		found, err := m.Get("k", &retrieved)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, original, retrieved)
+	})
+}
+
 func TestMemoryJsonMap_NestedStruct(t *testing.T) {
 	t.Parallel()
 	m := NewMemoryMap()

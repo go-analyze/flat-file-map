@@ -315,6 +315,8 @@ func stripZeroFields(v reflect.Value) interface{} {
 	switch v.Kind() {
 	case reflect.Struct:
 		out := make(map[string]interface{})
+		// keys claimed by direct fields, dominant over embedded fields per encoding/json rules
+		directKeys := make(map[string]struct{})
 		typ := v.Type()
 		for i := 0; i < v.NumField(); i++ {
 			fieldType := typ.Field(i)
@@ -341,19 +343,25 @@ func stripZeroFields(v reflect.Value) interface{} {
 					(fieldVal.Kind() == reflect.Ptr && !fieldVal.IsNil() && fieldVal.Elem().Kind() == reflect.Struct) {
 					if m, ok := strippedValue.(map[string]interface{}); ok {
 						for k, v := range m {
-							out[k] = v
+							if _, direct := directKeys[k]; !direct {
+								out[k] = v
+							}
 						}
 						continue // Skip adding the struct itself since its fields are now in out
 					}
 				}
 			}
 
+			// direct field claims the key, delete removes any earlier embedded value it shadows
+			directKeys[jsonKey] = struct{}{}
 			// For non-anonymous fields: if the field is a slice/map and nil, or is a zero value, omit it.
 			if fieldVal.Kind() == reflect.Slice || fieldVal.Kind() == reflect.Map {
 				if fieldVal.IsNil() {
+					delete(out, jsonKey)
 					continue
 				}
 			} else if isZeroValue(fieldVal) {
+				delete(out, jsonKey)
 				continue
 			}
 			out[jsonKey] = strippedValue
