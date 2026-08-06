@@ -816,6 +816,23 @@ func TestMemoryJsonMap_EncodeValue(t *testing.T) {
 	})
 }
 
+type largeIntMarshaler struct {
+	V int64
+}
+
+func (l largeIntMarshaler) MarshalJSON() ([]byte, error) {
+	return []byte(strconv.FormatInt(l.V, 10)), nil
+}
+
+func (l *largeIntMarshaler) UnmarshalJSON(data []byte) error {
+	v, err := strconv.ParseInt(string(data), 10, 64)
+	if err != nil {
+		return err
+	}
+	l.V = v
+	return nil
+}
+
 func TestMemoryJsonMap_StripZeroFields(t *testing.T) {
 	t.Parallel()
 	m := NewMemoryMap()
@@ -864,6 +881,17 @@ func TestMemoryJsonMap_StripZeroFields(t *testing.T) {
 		assert.Nil(t, mapRetrieved.NilMap)
 		assert.NotNil(t, mapRetrieved.EmptyMap)
 		assert.Empty(t, mapRetrieved.EmptyMap)
+	})
+
+	t.Run("marshaler_large_int", func(t *testing.T) {
+		original := largeIntMarshaler{V: 1<<53 + 1}
+		require.NoError(t, m.Set("large_int_marshaler", original))
+
+		var retrieved largeIntMarshaler
+		found, err := m.Get("large_int_marshaler", &retrieved)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, original, retrieved)
 	})
 
 	t.Run("interface_element_struct", func(t *testing.T) {

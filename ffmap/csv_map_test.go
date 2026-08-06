@@ -78,6 +78,11 @@ type TestNestedStruct struct {
 	Ptr   *TestNamedStruct
 }
 
+type TestLargeIntStruct struct {
+	ID    int64
+	Count uint64
+}
+
 type TestStructWithDeepNesting struct {
 	Level1 struct {
 		Level2 struct {
@@ -217,6 +222,67 @@ func TestKeyValueCSV_OpenAndCommit(t *testing.T) {
 			assert.True(t, found)
 			assert.Equal(t, expectedValue, actualValue)
 		}
+	})
+
+	t.Run("save_load_large_int_structs", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, mOrig := makeTestMap(t)
+
+		v1 := TestLargeIntStruct{ID: 1<<53 + 1, Count: math.MaxUint64}
+		v2 := TestLargeIntStruct{ID: math.MaxInt64, Count: 1<<53 + 1}
+		require.NoError(t, mOrig.Set("k1", v1))
+		require.NoError(t, mOrig.Set("k2", v2)) // second entry forces header encoding
+		require.NoError(t, mOrig.Commit())
+
+		mNew, err := OpenReadOnlyCSV(tmpFile)
+		require.NoError(t, err)
+
+		var got1, got2 TestLargeIntStruct
+		found, err := mNew.Get("k1", &got1)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, v1, got1)
+		found, err = mNew.Get("k2", &got2)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, v2, got2)
+	})
+
+	t.Run("save_load_large_int_slice", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, mOrig := makeTestMap(t)
+
+		// two elements force exploded slice encoding
+		value := []TestLargeIntStruct{{ID: 1<<53 + 1, Count: math.MaxUint64}, {ID: math.MaxInt64, Count: 1<<53 + 1}}
+		require.NoError(t, mOrig.Set("k", value))
+		require.NoError(t, mOrig.Commit())
+
+		mNew, err := OpenReadOnlyCSV(tmpFile)
+		require.NoError(t, err)
+
+		var got []TestLargeIntStruct
+		found, err := mNew.Get("k", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, value, got)
+	})
+
+	t.Run("load_large_int_struct_values", func(t *testing.T) {
+		t.Parallel()
+		tmpFile, err := os.CreateTemp("", "testm.*.csv")
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = os.Remove(tmpFile.Name()) })
+		content := "ver:1\n0,ffmap.TestLargeIntStruct-0,Count,ID\n1,k,\"[18446744073709551615,9007199254740993]\"\n"
+		require.NoError(t, os.WriteFile(tmpFile.Name(), []byte(content), 0644))
+
+		m, err := OpenCSV(tmpFile.Name())
+		require.NoError(t, err)
+
+		var got TestLargeIntStruct
+		found, err := m.Get("k", &got)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, TestLargeIntStruct{ID: 9007199254740993, Count: math.MaxUint64}, got)
 	})
 
 	t.Run("save_load_embedded_struct", func(t *testing.T) {
@@ -3722,6 +3788,29 @@ func TestStructFieldUnion(t *testing.T) {
 			name: "kind_mismatch_promotes_to_ptr",
 			items: []map[string]interface{}{
 				{"a": float64(1)},
+				{"a": "x"},
+			},
+			expectedFields: []string{"a"},
+			expectedKinds: map[string]reflect.Kind{
+				"a": reflect.Ptr,
+			},
+		},
+		{
+			name: "json_number_numeric_kind",
+			items: []map[string]interface{}{
+				{"a": json.Number("9007199254740993")},
+				{"b": json.Number("1")},
+			},
+			expectedFields: []string{"a", "b"},
+			expectedKinds: map[string]reflect.Kind{
+				"a": reflect.Float64,
+				"b": reflect.Float64,
+			},
+		},
+		{
+			name: "json_number_string_mismatch",
+			items: []map[string]interface{}{
+				{"a": json.Number("1")},
 				{"a": "x"},
 			},
 			expectedFields: []string{"a"},

@@ -115,13 +115,13 @@ func (kv *KeyValueCSV) loadRecords(records [][]string) error {
 			if len(record) != 3 {
 				return &ValidationError{Message: fmt.Sprintf("unexpected csv struct value column count: %v, line: %v", len(record), i+1)}
 			}
-			var values []interface{}
+			var values []json.RawMessage
 			if err := json.Unmarshal([]byte(record[2]), &values); err != nil {
 				return err
 			} else if len(values) != len(currStructValueNames) {
 				return &ValidationError{Message: fmt.Sprintf("unexpected encoded json value count: %v/%v, line: %v", len(values), len(currStructValueNames), i+1)}
 			}
-			structValue := make(map[string]interface{}, len(currStructValueNames))
+			structValue := make(map[string]json.RawMessage, len(currStructValueNames))
 			for j, name := range currStructValueNames {
 				structValue[name] = values[j]
 			}
@@ -275,7 +275,12 @@ func structFieldUnion(items []map[string]interface{}) ([]string, map[string]refl
 	fieldKinds := make(map[string]reflect.Kind)
 	for _, item := range items {
 		for name, v := range item {
-			fieldType := reflect.ValueOf(v).Kind()
+			var fieldType reflect.Kind
+			if _, ok := v.(json.Number); ok {
+				fieldType = reflect.Float64 // treat as numeric so zero substitution produces 0
+			} else {
+				fieldType = reflect.ValueOf(v).Kind()
+			}
 			if current, ok := fieldKinds[name]; ok {
 				if zeroValue(current) != zeroValue(fieldType) {
 					fieldKinds[name] = reflect.Ptr
@@ -335,7 +340,7 @@ func prepareExplodedSlice(key string, item dataItem) (*deferredSlice, bool) {
 			continue // parsed[i] stays nil
 		}
 		var m map[string]interface{}
-		if err := json.Unmarshal(raw, &m); err != nil || m == nil {
+		if err := unmarshalUseNumber(raw, &m); err != nil || m == nil {
 			return nil, false
 		}
 		parsed[i] = m
@@ -420,7 +425,7 @@ func (kv *KeyValueCSV) commitTo(w io.Writer) error {
 		// unmarshal each item once for both header construction and value projection
 		items := make([]map[string]interface{}, runEnd-i)
 		for j := i; j < runEnd; j++ {
-			if err := json.Unmarshal([]byte(kv.memoryMap.data[keys[j]].value), &items[j-i]); err != nil {
+			if err := unmarshalUseNumber([]byte(kv.memoryMap.data[keys[j]].value), &items[j-i]); err != nil {
 				return err
 			}
 		}

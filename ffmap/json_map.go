@@ -1,6 +1,7 @@
 package ffmap
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +16,13 @@ import (
 	"github.com/go-analyze/bulk"
 	"github.com/go-analyze/encoding/base85"
 )
+
+// unmarshalUseNumber unmarshals with json.Number for numeric values to preserve int64/uint64 precision.
+func unmarshalUseNumber(data []byte, v interface{}) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	return dec.Decode(v)
+}
 
 // jsonRawMessageType identifies json.RawMessage so its raw JSON bytes are stored
 // verbatim instead of being Z85-encoded as opaque bytes.
@@ -270,7 +278,7 @@ func stripZeroFields(v reflect.Value) interface{} {
 				// fall through to normal processing
 			} else if jsonBytes, err := marshaler.MarshalJSON(); err == nil {
 				var unmarshaled interface{}
-				if err := json.Unmarshal(jsonBytes, &unmarshaled); err == nil {
+				if err := unmarshalUseNumber(jsonBytes, &unmarshaled); err == nil {
 					return unmarshaled
 				}
 			}
