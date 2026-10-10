@@ -104,6 +104,53 @@ func TestMemoryJsonMap_Get(t *testing.T) {
 		assert.Contains(t, err.Error(), "type but got")
 	})
 
+	t.Run("nil_target", func(t *testing.T) {
+		m := NewMemoryMap()
+		require.NoError(t, m.Set("key", "value1"))
+
+		found, err := m.Get("key", nil)
+		assert.False(t, found)
+		var tm *TypeMismatchError
+		require.ErrorAs(t, err, &tm)
+		assert.Equal(t, "key", tm.Key)
+	})
+
+	t.Run("non_pointer_target", func(t *testing.T) {
+		m := NewMemoryMap()
+		require.NoError(t, m.Set("key", "value1"))
+
+		var result string
+		found, err := m.Get("key", result)
+		assert.False(t, found)
+		var tm *TypeMismatchError
+		require.ErrorAs(t, err, &tm)
+		assert.Equal(t, "key", tm.Key)
+	})
+
+	t.Run("nil_pointer_target", func(t *testing.T) {
+		m := NewMemoryMap()
+		require.NoError(t, m.Set("string_key", "value1"))
+		require.NoError(t, m.Set("struct_key", TestNamedStruct{Value: "test", ID: 123}))
+		require.NoError(t, m.Set("slice_key", []int{1, 2}))
+
+		var nilString *string
+		found, err := m.Get("string_key", nilString)
+		assert.False(t, found)
+		var tm *TypeMismatchError
+		require.ErrorAs(t, err, &tm)
+
+		// JSON-path data types (struct/slice/map) previously panicked on this shape
+		var nilStruct *TestNamedStruct
+		found, err = m.Get("struct_key", nilStruct)
+		assert.False(t, found)
+		require.ErrorAs(t, err, &tm)
+
+		var nilSlice *[]int
+		found, err = m.Get("slice_key", nilSlice)
+		assert.False(t, found)
+		require.ErrorAs(t, err, &tm)
+	})
+
 	t.Run("overflow", func(t *testing.T) {
 		m := NewMemoryMap()
 

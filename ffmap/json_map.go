@@ -423,8 +423,15 @@ func stripZeroFields(v reflect.Value) interface{} {
 }
 
 // decodeValue converts a stored dataItem back into a Go value.
+// The target must be a non-nil pointer; a TypeMismatchError is returned for any other target.
 func decodeValue(dataType int, encodedValue string, value interface{}) error {
-	ve := reflect.ValueOf(value).Elem()
+	target := reflect.ValueOf(value)
+	if !target.IsValid() || target.Kind() != reflect.Pointer {
+		return &TypeMismatchError{Message: fmt.Sprintf("expected pointer value but got %v", target.Kind())}
+	} else if target.IsNil() {
+		return &TypeMismatchError{Message: "cannot decode into nil pointer"}
+	}
+	ve := target.Elem()
 	switch dataType {
 	case dataString:
 		if ve.Kind() != reflect.String {
